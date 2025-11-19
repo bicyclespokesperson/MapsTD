@@ -18,18 +18,22 @@
 - [x] Boundary crossing detection (segment intersection)
 - [x] Entry point identification and visualization
 
-## 🚧 Map Selection & Setup
+## ✅ Map Selection & Setup (Completed)
 
-- [ ] Rectangle selection tool for map boundary
-  - [ ] UI to enter drawing mode
-  - [ ] Draw rectangle on map by dragging
-  - [ ] Visual feedback during drawing
-  - [ ] Confirm/cancel selection
-- [ ] Defend point selection
-  - [ ] Click to place defend point marker
-  - [ ] Validate point is inside boundary
-  - [ ] Visual radius showing no-build zone
-- [ ] Map configuration panel
+- [x] Rectangle selection tool for map boundary
+  - [x] UI to enter drawing mode
+  - [x] Draw rectangle on map by dragging
+  - [x] Visual feedback during drawing
+  - [x] Confirm/cancel selection
+- [x] Defend point selection
+  - [x] Click to place defend point marker
+  - [x] Validate point is inside boundary
+  - [x] Visual radius showing no-build zone
+- [x] Map configuration serialization (JSON)
+- [x] Share button with copy to clipboard
+- [x] Load configuration from JSON
+- [x] Unit tests for MapConfiguration
+- [ ] Map configuration panel (optional)
   - [ ] Display selected area size
   - [ ] Show number of roads/entry points
   - [ ] Estimated difficulty indicator
@@ -205,6 +209,6 @@
 
 ---
 
-**Current Status:** OSM Integration Complete ✨
-**Next Milestone:** Map Selection & Setup
-**Version:** 0.1.0-alpha
+**Current Status:** Map Selection & Sharing Complete ✨
+**Next Milestone:** Enemy System
+**Version:** 0.2.0-alpha

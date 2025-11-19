@@ -2,69 +2,64 @@ import './style.css';
 import * as L from 'leaflet';
 import Phaser from 'phaser';
 import { CoordinateConverter } from './coordinateConverter';
-import { OverpassClient, RoadSegment } from './overpassClient';
+import { OverpassClient } from './overpassClient';
 import { RoadNetwork, BoundaryEntry } from './roadNetwork';
+import { MapSelector, SelectionState } from './mapSelector';
+import { MapConfiguration } from './mapConfiguration';
 
 const DEFAULT_CENTER: L.LatLngExpression = [37.7749, -122.4194];
 const DEFAULT_ZOOM = 15;
 
 class GameScene extends Phaser.Scene {
   private converter!: CoordinateConverter;
-  private markerLatLng!: L.LatLng;
   private leafletMap!: L.Map;
 
   private roadGraphics!: Phaser.GameObjects.Graphics;
   private entryGraphics!: Phaser.GameObjects.Graphics;
-  private defenseGraphics!: Phaser.GameObjects.Graphics;
 
   private roadNetwork: RoadNetwork | null = null;
   private entries: BoundaryEntry[] = [];
+  private mapConfig: MapConfiguration | null = null;
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
-  init(data: { converter: CoordinateConverter; markerLatLng: L.LatLng; leafletMap: L.Map }) {
+  init(data: { converter: CoordinateConverter; leafletMap: L.Map }) {
     this.converter = data.converter;
-    this.markerLatLng = data.markerLatLng;
     this.leafletMap = data.leafletMap;
   }
 
   create() {
-    const instructionText = this.add.text(10, 10, 'Click "Load Roads" to fetch OSM data', {
-      fontSize: '16px',
-      color: '#ffffff',
-      backgroundColor: '#000000',
-      padding: { x: 5, y: 5 },
-    });
-
     this.roadGraphics = this.add.graphics();
     this.entryGraphics = this.add.graphics();
-    this.defenseGraphics = this.add.graphics();
 
-    (window as any).loadRoads = () => this.loadRoadsFromOSM();
+    (window as any).gameScene = this;
   }
 
   update() {
     this.renderRoads();
     this.renderEntries();
-    this.renderDefensePoint();
   }
 
-  private async loadRoadsFromOSM() {
+  setMapConfig(config: MapConfiguration) {
+    this.mapConfig = config;
+  }
+
+  async loadRoadsFromOSM(bounds: L.LatLngBounds, defendPoint: L.LatLng) {
     console.log('Loading roads from OSM...');
-    const bounds = this.leafletMap.getBounds();
 
     try {
       const client = new OverpassClient();
       const roads = await client.queryRoads(bounds);
 
       this.roadNetwork = new RoadNetwork(roads, bounds);
-      this.entries = this.roadNetwork.findBoundaryEntries(this.markerLatLng);
+      this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
 
       console.log(`Loaded ${roads.length} roads, ${this.entries.length} entry points`);
     } catch (error) {
       console.error('Failed to load roads:', error);
+      alert('Failed to load road data. Please try again.');
     }
   }
 
@@ -105,16 +100,132 @@ class GameScene extends Phaser.Scene {
       this.entryGraphics.strokeCircle(pos.x, pos.y, 12);
     }
   }
+}
 
-  private renderDefensePoint() {
-    this.defenseGraphics.clear();
+class UIManager {
+  private selector: MapSelector;
+  private gameScene: GameScene;
 
-    const pos = this.converter.latLngToPixel(this.markerLatLng);
+  private selectBoundsBtn: HTMLButtonElement;
+  private placeDefendBtn: HTMLButtonElement;
+  private loadRoadsBtn: HTMLButtonElement;
+  private shareBtn: HTMLButtonElement;
+  private loadConfigBtn: HTMLButtonElement;
 
-    this.defenseGraphics.lineStyle(4, 0xff0000, 1);
-    this.defenseGraphics.strokeCircle(pos.x, pos.y, 40);
-    this.defenseGraphics.fillStyle(0xff0000, 0.3);
-    this.defenseGraphics.fillCircle(pos.x, pos.y, 40);
+  private modal: HTMLElement;
+  private modalTitle: HTMLElement;
+  private configInput: HTMLTextAreaElement;
+  private modalConfirm: HTMLButtonElement;
+  private modalCancel: HTMLButtonElement;
+  private modalClose: HTMLElement;
+
+  private currentState: SelectionState | null = null;
+
+  constructor(selector: MapSelector, gameScene: GameScene) {
+    this.selector = selector;
+    this.gameScene = gameScene;
+
+    this.selectBoundsBtn = document.getElementById('selectBoundsBtn') as HTMLButtonElement;
+    this.placeDefendBtn = document.getElementById('placeDefendBtn') as HTMLButtonElement;
+    this.loadRoadsBtn = document.getElementById('loadRoadsBtn') as HTMLButtonElement;
+    this.shareBtn = document.getElementById('shareBtn') as HTMLButtonElement;
+    this.loadConfigBtn = document.getElementById('loadConfigBtn') as HTMLButtonElement;
+
+    this.modal = document.getElementById('modal') as HTMLElement;
+    this.modalTitle = document.getElementById('modalTitle') as HTMLElement;
+    this.configInput = document.getElementById('configInput') as HTMLTextAreaElement;
+    this.modalConfirm = document.getElementById('modalConfirm') as HTMLButtonElement;
+    this.modalCancel = document.getElementById('modalCancel') as HTMLButtonElement;
+    this.modalClose = document.querySelector('.modal-close') as HTMLElement;
+
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners() {
+    this.selectBoundsBtn.addEventListener('click', () => {
+      this.selector.startBoundsSelection();
+    });
+
+    this.placeDefendBtn.addEventListener('click', () => {
+      this.selector.startDefendPointSelection();
+    });
+
+    this.loadRoadsBtn.addEventListener('click', async () => {
+      if (this.currentState?.config) {
+        await this.gameScene.loadRoadsFromOSM(
+          this.currentState.config.bounds,
+          this.currentState.config.defendPoint
+        );
+      }
+    });
+
+    this.shareBtn.addEventListener('click', () => {
+      if (this.currentState?.config) {
+        this.showShareModal(this.currentState.config);
+      }
+    });
+
+    this.loadConfigBtn.addEventListener('click', () => {
+      this.showLoadModal();
+    });
+
+    this.modalClose.addEventListener('click', () => this.closeModal());
+    this.modalCancel.addEventListener('click', () => this.closeModal());
+
+    this.modal.addEventListener('click', (e) => {
+      if (e.target === this.modal) {
+        this.closeModal();
+      }
+    });
+  }
+
+  onStateChange(state: SelectionState) {
+    this.currentState = state;
+
+    this.placeDefendBtn.disabled = !state.bounds || !!state.config;
+    this.loadRoadsBtn.disabled = !state.config;
+    this.shareBtn.disabled = !state.config;
+
+    if (state.config) {
+      this.gameScene.setMapConfig(state.config);
+    }
+  }
+
+  private showShareModal(config: MapConfiguration) {
+    this.modalTitle.textContent = 'Share Map Configuration';
+    this.configInput.value = config.toString();
+    this.configInput.readOnly = true;
+    this.modalConfirm.textContent = 'Copy to Clipboard';
+    this.modalConfirm.onclick = () => {
+      navigator.clipboard.writeText(this.configInput.value);
+      alert('Copied to clipboard!');
+      this.closeModal();
+    };
+    this.modal.classList.add('active');
+    this.configInput.select();
+  }
+
+  private showLoadModal() {
+    this.modalTitle.textContent = 'Load Map Configuration';
+    this.configInput.value = '';
+    this.configInput.readOnly = false;
+    this.configInput.placeholder = 'Paste map configuration JSON here...';
+    this.modalConfirm.textContent = 'Load';
+    this.modalConfirm.onclick = () => {
+      try {
+        const config = MapConfiguration.fromString(this.configInput.value);
+        this.selector.loadConfiguration(config);
+        this.closeModal();
+      } catch (error) {
+        alert(`Failed to load configuration: ${(error as Error).message}`);
+      }
+    };
+    this.modal.classList.add('active');
+  }
+
+  private closeModal() {
+    this.modal.classList.remove('active');
+    this.configInput.value = '';
   }
 }
 
@@ -127,9 +238,6 @@ function initLeaflet(): L.Map {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
   }).addTo(map);
-
-  const marker = L.marker(DEFAULT_CENTER).addTo(map);
-  marker.bindPopup('<b>Defend This Point!</b>').openPopup();
 
   return map;
 }
@@ -156,17 +264,28 @@ function initPhaser(): Phaser.Game {
 
 const leafletMap = initLeaflet();
 const converter = new CoordinateConverter(leafletMap);
-const markerLatLng = L.latLng(DEFAULT_CENTER);
-
 const phaserGame = initPhaser();
 
-phaserGame.scene.start('GameScene', { converter, markerLatLng, leafletMap });
+phaserGame.events.once('ready', () => {
+  const gameScene = phaserGame.scene.getScene('GameScene') as GameScene;
+
+  if (!gameScene) {
+    console.error('Failed to get GameScene');
+    return;
+  }
+
+  gameScene.scene.restart({ converter, leafletMap });
+
+  const mapSelector = new MapSelector(leafletMap, (state) => {
+    uiManager.onStateChange(state);
+  });
+
+  const uiManager = new UIManager(mapSelector, gameScene);
+
+  console.log('Maps Tower Defense initialized');
+  console.log('Select an area, place defend point, then load roads to begin!');
+});
 
 window.addEventListener('resize', () => {
   phaserGame.scale.resize(window.innerWidth, window.innerHeight);
 });
-
-console.log('Leaflet map:', leafletMap);
-console.log('Phaser game:', phaserGame);
-console.log('Coordinate converter:', converter);
-console.log('Test: Pan/zoom the map - the red circle should track the marker position!');

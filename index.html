@@ -9,9 +9,29 @@
   <body>
     <div id="map"></div>
     <div id="game"></div>
+
     <div id="ui">
-      <button id="loadRoadsBtn" onclick="window.loadRoads()">Load Roads</button>
+      <button id="selectBoundsBtn">Select Area</button>
+      <button id="placeDefendBtn" disabled>Place Defend Point</button>
+      <button id="loadRoadsBtn" disabled>Load Roads</button>
+      <button id="shareBtn" disabled>Share</button>
+      <button id="loadConfigBtn">Load Config</button>
     </div>
+
+    <div id="modal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close">&times;</span>
+        <h2 id="modalTitle">Map Configuration</h2>
+        <div id="modalBody">
+          <textarea id="configInput" placeholder="Paste map configuration JSON here..."></textarea>
+          <div class="modal-actions">
+            <button id="modalConfirm">Load</button>
+            <button id="modalCancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
