@@ -114,6 +114,15 @@ class GameScene extends Phaser.Scene {
       this.entryGraphics.strokeCircle(pos.x, pos.y, 12);
     }
   }
+
+  recalculateEntries(defendPoint: L.LatLng) {
+    if (!this.roadNetwork) return;
+    
+    console.log('Recalculating entries for new defend point:', defendPoint);
+    this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
+    this.waveManager.setEntries(this.entries);
+    this.renderEntries();
+  }
 }
 
 class UIManager {
@@ -233,7 +242,9 @@ class UIManager {
     this.shareBtn.disabled = !state.config;
     this.startWaveBtn.disabled = !state.config;
 
-
+    if (state.defendPoint) {
+      this.gameScene.recalculateEntries(state.defendPoint);
+    }
   }
 
   private showShareModal(config: MapConfiguration) {
