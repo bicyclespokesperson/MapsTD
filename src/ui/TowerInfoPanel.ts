@@ -52,6 +52,17 @@ export class TowerInfoPanel {
       : 0;
 
     this.contentElement.innerHTML = `
+      <div class="tower-info-actions">
+        ${upgradeCost !== null
+          ? `<button id="upgradeTowerBtn" data-cost="${upgradeCost}">Upgrade ($${upgradeCost})</button>`
+          : '<button disabled>Max Level</button>'
+        }
+        <button id="sellTowerBtn" data-value="${sellValue}">Sell ($${sellValue})</button>
+      </div>
+      <div class="tower-info-row">
+        <span class="tower-info-label">Total Invested:</span>
+        <span class="tower-info-value">$${tower.getTotalInvested()}</span>
+      </div>
       <div class="tower-info-row">
         <span class="tower-info-label">Kills:</span>
         <span class="tower-info-value">${tower.statistics.kills}</span>
@@ -69,10 +80,6 @@ export class TowerInfoPanel {
         <span class="tower-info-value">${tower.getEfficiency().toFixed(1)} dmg/$</span>
       </div>
       <div class="tower-info-row">
-        <span class="tower-info-label">Uptime:</span>
-        <span class="tower-info-value">${uptime}s</span>
-      </div>
-      <div class="tower-info-row">
         <span class="tower-info-label">Range:</span>
         <span class="tower-info-value">${tower.stats.range}</span>
       </div>
@@ -85,15 +92,8 @@ export class TowerInfoPanel {
         <span class="tower-info-value">${(1000 / tower.stats.fireRate).toFixed(2)}/s</span>
       </div>
       <div class="tower-info-row">
-        <span class="tower-info-label">Total Invested:</span>
-        <span class="tower-info-value">$${tower.getTotalInvested()}</span>
-      </div>
-      <div class="tower-info-actions">
-        ${upgradeCost !== null
-          ? `<button id="upgradeTowerBtn" data-cost="${upgradeCost}">Upgrade ($${upgradeCost})</button>`
-          : '<button disabled>Max Level</button>'
-        }
-        <button id="sellTowerBtn" data-value="${sellValue}">Sell ($${sellValue})</button>
+        <span class="tower-info-label">Uptime:</span>
+        <span class="tower-info-value">${uptime}s</span>
       </div>
     `;
 

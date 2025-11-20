@@ -336,6 +336,8 @@ button:disabled {
   border-top: 1px solid #444;
   padding: 15px;
   margin-top: 20px;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 #tower-info-panel.hidden {
@@ -374,7 +376,7 @@ button:disabled {
 .tower-info-actions {
   display: flex;
   gap: 10px;
-  margin-top: 15px;
+  margin-bottom: 15px;
 }
 
 .tower-info-actions button {
