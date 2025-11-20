@@ -107,13 +107,13 @@ export class Projectile extends Phaser.GameObjects.Graphics {
     if (!this.splashRadius || !this.splashDamage) return;
 
     const enemies = (this.scene as any).waveManager?.getActiveEnemies() || [];
+    const scene = this.scene;
 
-    this.scene.add.circle(this.target.x, this.target.y, this.splashRadius, 0xff6600, 0.3);
-    this.scene.time.delayedCall(200, () => {
-      const circles = this.scene.children.getAll().filter(
-        (obj) => obj instanceof Phaser.GameObjects.Arc && obj.fillAlpha === 0.3
-      );
-      circles.forEach((c) => c.destroy());
+    const splashCircle = scene.add.circle(this.target.x, this.target.y, this.splashRadius, 0xff6600, 0.3);
+    scene.time.delayedCall(200, () => {
+      if (splashCircle && splashCircle.scene) {
+        splashCircle.destroy();
+      }
     });
 
     for (const enemy of enemies) {
