@@ -7,6 +7,7 @@ import { GAME_CONFIG } from '../config';
 
 export class Enemy extends Phaser.GameObjects.Container {
   private health: number;
+  private maxHealth: number;
   private speed: number; // meters per second
   private path: RoadPath;
   private currentWaypointIndex: number;
@@ -15,6 +16,7 @@ export class Enemy extends Phaser.GameObjects.Container {
   private _isDead: boolean = false;
   private onReachGoal: () => void;
   private onKill: () => void;
+  private healthArc: Phaser.GameObjects.Arc;
 
   constructor(
     scene: Phaser.Scene,
@@ -30,17 +32,19 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.onKill = onKill;
 
     this.health = GAME_CONFIG.ENEMY.HEALTH;
+    this.maxHealth = GAME_CONFIG.ENEMY.HEALTH;
     this.speed = GAME_CONFIG.ENEMY.SPEED;
-    
+
     this.currentWaypointIndex = 0;
     this.positionLatLng = path.waypoints[0];
 
-    // Create visual
-    const circle = scene.add.circle(0, 0, GAME_CONFIG.ENEMY.RADIUS, GAME_CONFIG.ENEMY.COLOR);
+    // Create visual - health as pie chart
     const border = scene.add.circle(0, 0, GAME_CONFIG.ENEMY.RADIUS + 2);
     border.setStrokeStyle(GAME_CONFIG.ENEMY.BORDER_WIDTH, GAME_CONFIG.ENEMY.BORDER_COLOR);
-    
-    this.add([border, circle]);
+
+    this.healthArc = scene.add.arc(0, 0, GAME_CONFIG.ENEMY.RADIUS, 0, 360, false, GAME_CONFIG.ENEMY.COLOR);
+
+    this.add([border, this.healthArc]);
 
     // Initial position
     this.updateScreenPosition();
@@ -96,9 +100,16 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   takeDamage(amount: number) {
     this.health -= amount;
+    this.updateHealthVisual();
     if (this.health <= 0) {
       this.die();
     }
+  }
+
+  private updateHealthVisual() {
+    const healthPercent = Math.max(0, this.health / this.maxHealth);
+    const angle = healthPercent * 360;
+    this.healthArc.endAngle = angle;
   }
 
   private die() {
