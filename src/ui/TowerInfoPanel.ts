@@ -64,6 +64,17 @@ export class TowerInfoPanel {
         <span class="tower-info-value">$${tower.getTotalInvested()}</span>
       </div>
       <div class="tower-info-row">
+        <span class="tower-info-label">Targeting:</span>
+        <span class="tower-info-value">
+          <select id="targetingModeSelect" style="background: #333; color: #fff; border: 1px solid #555; padding: 4px; border-radius: 4px;">
+            <option value="FIRST" ${tower.targetingMode === 'FIRST' ? 'selected' : ''}>First (Closest to Goal)</option>
+            <option value="LAST" ${tower.targetingMode === 'LAST' ? 'selected' : ''}>Last (Furthest)</option>
+            <option value="CLOSEST" ${tower.targetingMode === 'CLOSEST' ? 'selected' : ''}>Closest to Tower</option>
+            <option value="STRONGEST" ${tower.targetingMode === 'STRONGEST' ? 'selected' : ''}>Strongest (Most HP)</option>
+          </select>
+        </span>
+      </div>
+      <div class="tower-info-row">
         <span class="tower-info-label">Kills:</span>
         <span class="tower-info-value">${tower.statistics.kills}</span>
       </div>
@@ -105,6 +116,17 @@ export class TowerInfoPanel {
     const sellBtn = document.getElementById('sellTowerBtn');
     if (sellBtn) {
       sellBtn.addEventListener('click', () => this.handleSell());
+    }
+
+    const targetingSelect = document.getElementById('targetingModeSelect') as HTMLSelectElement;
+    if (targetingSelect && this.currentTower) {
+      targetingSelect.addEventListener('change', (e) => {
+        const target = e.target as HTMLSelectElement;
+        if (this.currentTower) {
+          this.currentTower.setTargetingMode(target.value as any);
+          console.log(`Targeting mode changed to: ${target.value}`);
+        }
+      });
     }
   }
 
