@@ -3,6 +3,7 @@ import { BoundaryEntry } from '../roadNetwork';
 import { Enemy } from './Enemy';
 import { CoordinateConverter } from '../coordinateConverter';
 import { ECONOMY } from './TowerTypes';
+import { EnemyType } from './EnemyTypes';
 
 export class WaveManager {
   private scene: Phaser.Scene;
@@ -71,17 +72,38 @@ export class WaveManager {
     if (this.entries.length === 0) return;
 
     const entry = this.entries[Math.floor(Math.random() * this.entries.length)];
+    const enemyType = this.getEnemyTypeForWave();
 
     const enemy = new Enemy(
       this.scene,
+      enemyType,
       entry.roadPath,
       this.converter,
       () => this.onEnemyReachGoal(),
-      () => this.onEnemyKilled()
+      () => this.onEnemyKilled(enemy)
     );
 
     this.activeEnemies.push(enemy);
     this.enemiesRemainingToSpawn--;
+  }
+
+  private getEnemyTypeForWave(): EnemyType {
+    const rand = Math.random();
+    const wave = this.currentWave;
+
+    if (wave <= 2) {
+      return 'NORMAL';
+    } else if (wave <= 5) {
+      return rand < 0.3 ? 'SCOUT' : 'NORMAL';
+    } else if (wave <= 10) {
+      if (rand < 0.2) return 'SCOUT';
+      if (rand < 0.7) return 'NORMAL';
+      return 'TANK';
+    } else {
+      if (rand < 0.3) return 'SCOUT';
+      if (rand < 0.6) return 'NORMAL';
+      return 'TANK';
+    }
   }
 
   private onEnemyReachGoal() {
@@ -95,9 +117,10 @@ export class WaveManager {
     }
   }
 
-  private onEnemyKilled() {
-    this.money += ECONOMY.KILL_REWARD;
-    console.log(`Enemy killed! Money: ${this.money}`);
+  private onEnemyKilled(enemy: Enemy) {
+    const reward = enemy.getReward();
+    this.money += reward;
+    console.log(`${enemy.type} killed! Reward: $${reward}, Total money: ${this.money}`);
     this.updateStats();
   }
 

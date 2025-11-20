@@ -2,13 +2,14 @@ import Phaser from 'phaser';
 import * as L from 'leaflet';
 import { CoordinateConverter } from '../coordinateConverter';
 import { RoadPath } from '../roadNetwork';
+import { EnemyType, ENEMY_CONFIGS, EnemyConfig } from './EnemyTypes';
 
 import { GAME_CONFIG } from '../config';
 
 export class Enemy extends Phaser.GameObjects.Container {
   private health: number;
   private maxHealth: number;
-  private speed: number; // meters per second
+  private speed: number;
   private path: RoadPath;
   private currentWaypointIndex: number;
   private converter: CoordinateConverter;
@@ -17,32 +18,39 @@ export class Enemy extends Phaser.GameObjects.Container {
   private onReachGoal: () => void;
   private onKill: () => void;
   private healthArc: Phaser.GameObjects.Arc;
+  private reward: number;
+  public readonly type: EnemyType;
+  private config: EnemyConfig;
 
   constructor(
     scene: Phaser.Scene,
+    type: EnemyType,
     path: RoadPath,
     converter: CoordinateConverter,
     onReachGoal: () => void,
     onKill: () => void
   ) {
     super(scene);
+    this.type = type;
+    this.config = ENEMY_CONFIGS[type];
     this.path = path;
     this.converter = converter;
     this.onReachGoal = onReachGoal;
     this.onKill = onKill;
 
-    this.health = GAME_CONFIG.ENEMY.HEALTH;
-    this.maxHealth = GAME_CONFIG.ENEMY.HEALTH;
-    this.speed = GAME_CONFIG.ENEMY.SPEED;
+    this.health = this.config.health;
+    this.maxHealth = this.config.health;
+    this.speed = this.config.speed;
+    this.reward = this.config.reward;
 
     this.currentWaypointIndex = 0;
     this.positionLatLng = path.waypoints[0];
 
-    // Create visual - health as pie chart
-    const border = scene.add.circle(0, 0, GAME_CONFIG.ENEMY.RADIUS + 2);
+    // Create visual - health as pie chart with size based on enemy type
+    const border = scene.add.circle(0, 0, this.config.size + 2);
     border.setStrokeStyle(GAME_CONFIG.ENEMY.BORDER_WIDTH, GAME_CONFIG.ENEMY.BORDER_COLOR);
 
-    this.healthArc = scene.add.arc(0, 0, GAME_CONFIG.ENEMY.RADIUS, 0, 360, false, GAME_CONFIG.ENEMY.COLOR);
+    this.healthArc = scene.add.arc(0, 0, this.config.size, 0, 360, false, this.config.color);
 
     this.add([border, this.healthArc]);
 
@@ -140,5 +148,9 @@ export class Enemy extends Phaser.GameObjects.Container {
       totalDistance += current.distanceTo(next);
     }
     return totalDistance;
+  }
+
+  public getReward(): number {
+    return this.reward;
   }
 }
