@@ -37,6 +37,7 @@ export interface OverpassResponse {
 export interface RoadSegment {
   id: number;
   points: L.LatLng[];
+  nodeIds: number[];
   tags: Record<string, string>;
   highway: string;
 }
@@ -102,10 +103,13 @@ export class OverpassClient {
       if (!way.tags?.highway) continue;
 
       const points: L.LatLng[] = [];
+      const nodeIds: number[] = [];
+      
       for (const nodeId of way.nodes) {
         const node = nodes.get(nodeId);
         if (node) {
           points.push(L.latLng(node.lat, node.lon));
+          nodeIds.push(nodeId);
         }
       }
 
@@ -113,6 +117,7 @@ export class OverpassClient {
         roads.push({
           id: way.id,
           points,
+          nodeIds,
           tags: way.tags || {},
           highway: way.tags.highway,
         });

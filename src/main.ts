@@ -6,45 +6,50 @@ import { OverpassClient } from './overpassClient';
 import { RoadNetwork, BoundaryEntry } from './roadNetwork';
 import { MapSelector, SelectionState } from './mapSelector';
 import { MapConfiguration } from './mapConfiguration';
+import { WaveManager } from './game/WaveManager';
 
 const DEFAULT_CENTER: L.LatLngExpression = [37.7749, -122.4194];
 const DEFAULT_ZOOM = 15;
 
 class GameScene extends Phaser.Scene {
   private converter!: CoordinateConverter;
-  private leafletMap!: L.Map;
+
 
   private roadGraphics!: Phaser.GameObjects.Graphics;
   private entryGraphics!: Phaser.GameObjects.Graphics;
 
   private roadNetwork: RoadNetwork | null = null;
   private entries: BoundaryEntry[] = [];
-  private mapConfig: MapConfiguration | null = null;
+  
+  public waveManager!: WaveManager;
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
-  init(data: { converter: CoordinateConverter; leafletMap: L.Map }) {
+  init(data: { converter: CoordinateConverter }) {
     this.converter = data.converter;
-    this.leafletMap = data.leafletMap;
   }
 
   create() {
     this.roadGraphics = this.add.graphics();
     this.entryGraphics = this.add.graphics();
+    
+    this.waveManager = new WaveManager(this, this.converter);
 
     (window as any).gameScene = this;
   }
 
-  update() {
+  update(time: number, delta: number) {
     this.renderRoads();
     this.renderEntries();
+    
+    if (this.waveManager) {
+        this.waveManager.update(time, delta);
+    }
   }
 
-  setMapConfig(config: MapConfiguration) {
-    this.mapConfig = config;
-  }
+
 
   async loadRoadsFromOSM(bounds: L.LatLngBounds, defendPoint: L.LatLng) {
     console.log('Loading roads from OSM...');
@@ -55,12 +60,21 @@ class GameScene extends Phaser.Scene {
 
       this.roadNetwork = new RoadNetwork(roads, bounds);
       this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
+      
+      this.waveManager.setEntries(this.entries);
 
       console.log(`Loaded ${roads.length} roads, ${this.entries.length} entry points`);
+      return true;
     } catch (error) {
       console.error('Failed to load roads:', error);
       alert('Failed to load road data. Please try again.');
+      return false;
     }
+  }
+
+  isPointOnRoad(point: L.LatLng): boolean {
+    if (!this.roadNetwork) return false;
+    return this.roadNetwork.isPointOnRoad(point);
   }
 
   private renderRoads() {
@@ -108,9 +122,9 @@ class UIManager {
 
   private selectBoundsBtn: HTMLButtonElement;
   private placeDefendBtn: HTMLButtonElement;
-  private loadRoadsBtn: HTMLButtonElement;
   private shareBtn: HTMLButtonElement;
   private loadConfigBtn: HTMLButtonElement;
+  private startWaveBtn: HTMLButtonElement;
 
   private modal: HTMLElement;
   private modalTitle: HTMLElement;
@@ -118,6 +132,10 @@ class UIManager {
   private modalConfirm: HTMLButtonElement;
   private modalCancel: HTMLButtonElement;
   private modalClose: HTMLElement;
+  
+  private livesDisplay: HTMLElement;
+  private moneyDisplay: HTMLElement;
+  private waveDisplay: HTMLElement;
 
   private currentState: SelectionState | null = null;
 
@@ -127,9 +145,9 @@ class UIManager {
 
     this.selectBoundsBtn = document.getElementById('selectBoundsBtn') as HTMLButtonElement;
     this.placeDefendBtn = document.getElementById('placeDefendBtn') as HTMLButtonElement;
-    this.loadRoadsBtn = document.getElementById('loadRoadsBtn') as HTMLButtonElement;
     this.shareBtn = document.getElementById('shareBtn') as HTMLButtonElement;
     this.loadConfigBtn = document.getElementById('loadConfigBtn') as HTMLButtonElement;
+    this.startWaveBtn = document.getElementById('startWaveBtn') as HTMLButtonElement;
 
     this.modal = document.getElementById('modal') as HTMLElement;
     this.modalTitle = document.getElementById('modalTitle') as HTMLElement;
@@ -137,25 +155,37 @@ class UIManager {
     this.modalConfirm = document.getElementById('modalConfirm') as HTMLButtonElement;
     this.modalCancel = document.getElementById('modalCancel') as HTMLButtonElement;
     this.modalClose = document.querySelector('.modal-close') as HTMLElement;
+    
+    this.livesDisplay = document.getElementById('livesDisplay') as HTMLElement;
+    this.moneyDisplay = document.getElementById('moneyDisplay') as HTMLElement;
+    this.waveDisplay = document.getElementById('waveDisplay') as HTMLElement;
 
     this.setupEventListeners();
+    this.setupGameListeners();
   }
 
   private setupEventListeners() {
     this.selectBoundsBtn.addEventListener('click', () => {
-      this.selector.startBoundsSelection();
+      if (this.selector.currentMode === 'drawing-bounds') {
+        this.selector.cancelSelection();
+      } else {
+        this.selector.startBoundsSelection();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.selector.currentMode !== 'none') {
+          this.selector.cancelSelection();
+        }
+      }
     });
 
     this.placeDefendBtn.addEventListener('click', () => {
-      this.selector.startDefendPointSelection();
-    });
-
-    this.loadRoadsBtn.addEventListener('click', async () => {
-      if (this.currentState?.config) {
-        await this.gameScene.loadRoadsFromOSM(
-          this.currentState.config.bounds,
-          this.currentState.config.defendPoint
-        );
+      if (this.selector.currentMode === 'placing-defend') {
+        this.selector.cancelSelection();
+      } else {
+        this.selector.startDefendPointSelection();
       }
     });
 
@@ -168,6 +198,10 @@ class UIManager {
     this.loadConfigBtn.addEventListener('click', () => {
       this.showLoadModal();
     });
+    
+    this.startWaveBtn.addEventListener('click', () => {
+        this.gameScene.waveManager.startNextWave();
+    });
 
     this.modalClose.addEventListener('click', () => this.closeModal());
     this.modalCancel.addEventListener('click', () => this.closeModal());
@@ -178,17 +212,28 @@ class UIManager {
       }
     });
   }
+  
+  private setupGameListeners() {
+      window.addEventListener('game-stats-update', (e: any) => {
+          const { lives, money, wave } = e.detail;
+          this.livesDisplay.textContent = lives.toString();
+          this.moneyDisplay.textContent = money.toString();
+          this.waveDisplay.textContent = wave.toString();
+      });
+  }
 
   onStateChange(state: SelectionState) {
     this.currentState = state;
 
-    this.placeDefendBtn.disabled = !state.bounds || !!state.config;
-    this.loadRoadsBtn.disabled = !state.config;
+    // Enable place defend button if we have bounds but no config yet
+    // OR if we have a config (re-placing defend point)
+    this.placeDefendBtn.disabled = !state.bounds;
+    
+    // Enable share/start only if we have a full config
     this.shareBtn.disabled = !state.config;
+    this.startWaveBtn.disabled = !state.config;
 
-    if (state.config) {
-      this.gameScene.setMapConfig(state.config);
-    }
+
   }
 
   private showShareModal(config: MapConfiguration) {
@@ -276,9 +321,44 @@ phaserGame.events.once('ready', () => {
 
   gameScene.scene.restart({ converter, leafletMap });
 
-  const mapSelector = new MapSelector(leafletMap, (state) => {
-    uiManager.onStateChange(state);
-  });
+  const mapSelector = new MapSelector(
+    leafletMap, 
+    (state) => {
+      uiManager.onStateChange(state);
+    },
+    // onBoundsSelected: Auto-load roads
+    async (bounds) => {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+      
+      try {
+        // We need a temporary defend point to load roads, but we don't have one yet.
+        // However, loadRoadsFromOSM currently requires a defend point to find entries.
+        // We should split the loading: 1. Load roads, 2. Find entries later.
+        // For now, let's just load the roads and we'll find entries when the defend point is set.
+        
+        // Actually, let's modify loadRoadsFromOSM to allow null defend point
+        // Or better, just load the network first.
+        
+        // Let's check GameScene.loadRoadsFromOSM
+        // It calls roadNetwork.findBoundaryEntries(defendPoint)
+        
+        // We can pass the center of the bounds as a dummy defend point for now, 
+        // just to get the roads loaded and visualized.
+        // Real entries will be recalculated when defend point is chosen?
+        // The user flow is: Select Bounds -> (Auto Load Roads) -> Select Defend Point -> (Recalculate Entries/Start)
+        
+        // Let's try to load roads immediately.
+        await gameScene.loadRoadsFromOSM(bounds, bounds.getCenter());
+      } finally {
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+      }
+    },
+    // validateDefendPoint: Check if point is on road
+    (point) => {
+      return gameScene.isPointOnRoad(point);
+    }
+  );
 
   const uiManager = new UIManager(mapSelector, gameScene);
 

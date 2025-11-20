@@ -22,10 +22,19 @@ export class MapSelector {
   private tempRectangle: L.Rectangle | null = null;
 
   private onStateChange: (state: SelectionState) => void;
+  private onBoundsSelected?: (bounds: L.LatLngBounds) => void;
+  private validateDefendPoint?: (point: L.LatLng) => boolean;
 
-  constructor(map: L.Map, onStateChange: (state: SelectionState) => void) {
+  constructor(
+    map: L.Map, 
+    onStateChange: (state: SelectionState) => void,
+    onBoundsSelected?: (bounds: L.LatLngBounds) => void,
+    validateDefendPoint?: (point: L.LatLng) => boolean
+  ) {
     this.map = map;
     this.onStateChange = onStateChange;
+    this.onBoundsSelected = onBoundsSelected;
+    this.validateDefendPoint = validateDefendPoint;
     this.state = {
       mode: 'none',
       bounds: null,
@@ -150,12 +159,21 @@ export class MapSelector {
     return { ...this.state };
   }
 
+  get currentMode(): SelectionMode {
+    return this.state.mode;
+  }
+
+  isSelecting(): boolean {
+    return this.state.mode === 'drawing-bounds';
+  }
+
   private onMouseDown = (e: L.LeafletMouseEvent): void => {
     if (this.state.mode !== 'drawing-bounds') return;
 
     this.startPoint = e.latlng;
 
-    this.tempRectangle = L.rectangle([this.startPoint, this.startPoint], {
+    const bounds = L.latLngBounds(this.startPoint, this.startPoint);
+    this.tempRectangle = L.rectangle(bounds, {
       color: '#3388ff',
       weight: 2,
       fillOpacity: 0.1,
@@ -165,14 +183,14 @@ export class MapSelector {
   private onMouseMove = (e: L.LeafletMouseEvent): void => {
     if (!this.startPoint || !this.tempRectangle) return;
 
-    const bounds = L.latLngBounds(this.startPoint, e.latlng);
+    const bounds = L.latLngBounds([this.startPoint, e.latlng]);
     this.tempRectangle.setBounds(bounds);
   };
 
   private onMouseUp = (e: L.LeafletMouseEvent): void => {
     if (!this.startPoint || !this.tempRectangle) return;
 
-    const bounds = L.latLngBounds(this.startPoint, e.latlng);
+    const bounds = L.latLngBounds([this.startPoint, e.latlng]);
 
     if (this.boundsRectangle) {
       this.boundsRectangle.remove();
@@ -186,6 +204,10 @@ export class MapSelector {
 
     this.state.bounds = bounds;
     this.cancelSelection();
+    
+    if (this.onBoundsSelected) {
+        this.onBoundsSelected(bounds);
+    }
   };
 
   private onDefendPointClick = (e: L.LeafletMouseEvent): void => {
@@ -195,6 +217,12 @@ export class MapSelector {
       alert('Defend point must be inside the selected bounds!');
       this.startDefendPointSelection();
       return;
+    }
+    
+    if (this.validateDefendPoint && !this.validateDefendPoint(e.latlng)) {
+        alert('Defend point must be on a road!');
+        this.startDefendPointSelection();
+        return;
     }
 
     if (this.defendMarker) {

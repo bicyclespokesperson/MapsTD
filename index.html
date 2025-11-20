@@ -7,15 +7,38 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body>
-    <div id="map"></div>
-    <div id="game"></div>
-
-    <div id="ui">
-      <button id="selectBoundsBtn">Select Area</button>
-      <button id="placeDefendBtn" disabled>Place Defend Point</button>
-      <button id="loadRoadsBtn" disabled>Load Roads</button>
-      <button id="shareBtn" disabled>Share</button>
-      <button id="loadConfigBtn">Load Config</button>
+    <div id="app-container">
+      <div id="sidebar">
+        <h1>Maps Tower Defense</h1>
+        <div class="controls">
+          <button id="selectBoundsBtn">Select Area</button>
+          <p class="help-text">1. Drag to select map area</p>
+          
+          <button id="placeDefendBtn" disabled>Place Defend Point</button>
+          <p class="help-text">2. Click a road to defend</p>
+          
+          <button id="startWaveBtn" disabled>Start Wave</button>
+          <p class="help-text">3. Defend!</p>
+          
+          <hr>
+          
+          <button id="shareBtn" disabled>Share Map</button>
+          <button id="loadConfigBtn">Load Map</button>
+        </div>
+        
+        <div id="stats-panel">
+          <div class="stat-row">Lives: <span id="livesDisplay">10</span></div>
+          <div class="stat-row">Money: <span id="moneyDisplay">100</span></div>
+          <div class="stat-row">Wave: <span id="waveDisplay">0</span></div>
+        </div>
+      </div>
+      
+      <div id="main-content">
+        <div id="map-container">
+          <div id="map"></div>
+          <div id="game"></div>
+        </div>
+      </div>
     </div>
 
     <div id="modal" class="modal">
@@ -30,6 +53,11 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div id="loading-overlay" class="hidden">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading Map Data...</div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

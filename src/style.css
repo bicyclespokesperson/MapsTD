@@ -4,84 +4,130 @@
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
+  color: #f0f0f0;
 }
 
 #map {
   position: absolute;
   top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0;
+}
+
+#app-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+#sidebar {
+  width: 300px;
+  background-color: #1a1a1a;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #333;
+  z-index: 1000;
+}
+
+#sidebar h1 {
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #646cff;
+}
+
+#main-content {
+  flex: 1;
+  position: relative;
+  background-color: #000;
+}
+
+#map-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
 #game {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-}
-
-#game canvas {
-  pointer-events: none;
-}
-
-#ui {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 2;
+}
+
+.controls {
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-#ui button {
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 600;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
+.help-text {
+  font-size: 0.8rem;
+  color: #888;
+  margin: -5px 0 10px 0;
+}
+
+button {
   border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s;
+  transition: border-color 0.25s;
+  color: #ffffff;
 }
 
-#ui button:hover {
-  background-color: #45a049;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+button:hover {
+  border-color: #646cff;
 }
 
-#ui button:active {
-  transform: translateY(0);
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
 }
 
-#ui button:disabled {
-  background-color: #cccccc;
+button:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
-#ui button:disabled:hover {
-  background-color: #cccccc;
-  transform: none;
-  box-shadow: none;
+#stats-panel {
+  margin-top: auto;
+  background-color: #333;
+  padding: 15px;
+  border-radius: 8px;
 }
 
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+/* Modal Styles */
 .modal {
   display: none;
   position: fixed;
-  z-index: 1000;
+  z-index: 2000;
   left: 0;
   top: 0;
   width: 100%;
@@ -96,29 +142,21 @@ body {
 }
 
 .modal-content {
-  background-color: white;
-  padding: 30px;
-  border-radius: 12px;
+  background-color: #242424;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
   max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   position: relative;
+  border: 1px solid #444;
 }
 
 .modal-close {
   position: absolute;
-  top: 15px;
-  right: 20px;
-  font-size: 28px;
-  font-weight: bold;
-  color: #aaa;
+  right: 15px;
+  top: 10px;
+  font-size: 24px;
   cursor: pointer;
-}
-
-.modal-close:hover {
-  color: #000;
 }
 
 .modal-content h2 {
@@ -128,8 +166,6 @@ body {
 
 #configInput {
   width: 100%;
-  min-height: 200px;
-  padding: 12px;
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 12px;
   border: 1px solid #ddd;
@@ -170,4 +206,44 @@ body {
 
 #modalCancel:hover {
   background-color: #da190b;
+}
+
+/* Loading Overlay */
+#loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+#loading-overlay.hidden {
+  display: none;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #646cff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+.loading-text {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
