@@ -94,7 +94,9 @@ export class WaveManager {
     if (wave <= 2) {
       return 'NORMAL';
     } else if (wave <= 5) {
-      return rand < 0.3 ? 'SCOUT' : 'NORMAL';
+      if (rand < 0.3) return 'SCOUT';
+      if (rand < 0.9) return 'NORMAL';
+      return 'TANK';
     } else if (wave <= 10) {
       if (rand < 0.2) return 'SCOUT';
       if (rand < 0.7) return 'NORMAL';
@@ -162,5 +164,10 @@ export class WaveManager {
       return true;
     }
     return false;
+  }
+
+  addMoney(amount: number): void {
+    this.money += amount;
+    this.updateStats();
   }
 }

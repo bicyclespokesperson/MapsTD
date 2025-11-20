@@ -438,12 +438,7 @@ class UIManager {
 
     if (this.gameScene.towerManager) {
       this.gameScene.towerManager.removeTower(tower);
-      this.gameScene.waveManager.getStats().money += sellValue;
-
-      const event = new CustomEvent('game-stats-update', {
-        detail: this.gameScene.waveManager.getStats()
-      });
-      window.dispatchEvent(event);
+      this.gameScene.waveManager.addMoney(sellValue);
 
       this.towerInfoPanel.hide();
       console.log(`Tower sold for $${sellValue}`);
