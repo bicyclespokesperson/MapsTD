@@ -8,8 +8,10 @@ import { MapSelector, SelectionState } from './mapSelector';
 import { MapConfiguration } from './mapConfiguration';
 import { WaveManager } from './game/WaveManager';
 
-const DEFAULT_CENTER: L.LatLngExpression = [37.7749, -122.4194];
-const DEFAULT_ZOOM = 15;
+import { GAME_CONFIG } from './config';
+
+const DEFAULT_CENTER = GAME_CONFIG.MAP.DEFAULT_CENTER;
+const DEFAULT_ZOOM = GAME_CONFIG.MAP.DEFAULT_ZOOM;
 
 class GameScene extends Phaser.Scene {
   private converter!: CoordinateConverter;

@@ -3,6 +3,8 @@ import * as L from 'leaflet';
 import { CoordinateConverter } from '../coordinateConverter';
 import { RoadPath } from '../roadNetwork';
 
+import { GAME_CONFIG } from '../config';
+
 export class Enemy extends Phaser.GameObjects.Container {
   private health: number;
   private speed: number; // meters per second
@@ -24,16 +26,16 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.converter = converter;
     this.onReachGoal = onReachGoal;
     
-    this.health = 100;
-    this.speed = 30; // 30 meters per second (approx 100km/h - fast!)
+    this.health = GAME_CONFIG.ENEMY.HEALTH;
+    this.speed = GAME_CONFIG.ENEMY.SPEED;
     
     this.currentWaypointIndex = 0;
     this.positionLatLng = path.waypoints[0];
 
     // Create visual
-    const circle = scene.add.circle(0, 0, 6, 0xff0000);
-    const border = scene.add.circle(0, 0, 8);
-    border.setStrokeStyle(2, 0xffffff);
+    const circle = scene.add.circle(0, 0, GAME_CONFIG.ENEMY.RADIUS, GAME_CONFIG.ENEMY.COLOR);
+    const border = scene.add.circle(0, 0, GAME_CONFIG.ENEMY.RADIUS + 2);
+    border.setStrokeStyle(GAME_CONFIG.ENEMY.BORDER_WIDTH, GAME_CONFIG.ENEMY.BORDER_COLOR);
     
     this.add([border, circle]);
 

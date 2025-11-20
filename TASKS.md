@@ -42,18 +42,19 @@
 ## 🎮 Core Game Loop
 
 ### Enemy System
-- [ ] Enemy class with properties (health, speed, position)
-- [ ] Enemy spawning from entry points
-  - [ ] Wave-based spawning system
+
+- [x] Enemy class with properties (health, speed, position)
+- [x] Enemy spawning from entry points
+  - [x] Wave-based spawning system
   - [ ] Limit to ~25 enemies on screen
-  - [ ] Stagger spawns across entry points
-- [ ] Enemy movement along road waypoints
-  - [ ] Follow road geometry
-  - [ ] Smooth interpolation between waypoints
-  - [ ] Speed variations by enemy type
-- [ ] Enemy reaches defend point
-  - [ ] Remove enemy from game
-  - [ ] Deduct 1 life
+  - [x] Stagger spawns across entry points
+- [x] Enemy movement along road waypoints
+  - [x] Follow road geometry
+  - [x] Smooth interpolation between waypoints
+  - [x] Speed variations by enemy type
+- [x] Enemy reaches defend point
+  - [x] Remove enemy from game
+  - [x] Deduct 1 life
   - [ ] Visual/audio feedback
 - [ ] Enemy death
   - [ ] Award money/resources
@@ -61,6 +62,7 @@
   - [ ] Remove from game
 
 ### Tower System
+
 - [ ] Tower placement UI
   - [ ] Click to enter placement mode
   - [ ] Show valid placement areas (outside no-build zone)
@@ -86,6 +88,7 @@
   - [ ] Visual changes on upgrade
 
 ### Game State Management
+
 - [ ] Lives system (start with 10)
 - [ ] Money/resource system
   - [ ] Starting money

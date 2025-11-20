@@ -1,5 +1,7 @@
 import * as L from 'leaflet';
 
+import { GAME_CONFIG } from './config';
+
 export interface MapConfigData {
   version: string;
   bounds: {
@@ -20,7 +22,6 @@ export interface MapConfigData {
 
 export class MapConfiguration {
   private static readonly VERSION = '1.0.0';
-  private static readonly NO_BUILD_RADIUS_METERS = 100;
 
   bounds: L.LatLngBounds;
   defendPoint: L.LatLng;
@@ -46,11 +47,11 @@ export class MapConfiguration {
     }
 
     const boundsSizeKm = this.getBoundsSizeKm();
-    if (boundsSizeKm.width < 0.8 || boundsSizeKm.width > 8) {
-      throw new Error('Map width must be between 0.5 and 5 miles (0.8-8 km)');
+    if (boundsSizeKm.width < GAME_CONFIG.MAP.MIN_WIDTH_KM || boundsSizeKm.width > GAME_CONFIG.MAP.MAX_WIDTH_KM) {
+      throw new Error(`Map width must be between ${GAME_CONFIG.MAP.MIN_WIDTH_KM} and ${GAME_CONFIG.MAP.MAX_WIDTH_KM} km`);
     }
-    if (boundsSizeKm.height < 0.8 || boundsSizeKm.height > 8) {
-      throw new Error('Map height must be between 0.5 and 5 miles (0.8-8 km)');
+    if (boundsSizeKm.height < GAME_CONFIG.MAP.MIN_HEIGHT_KM || boundsSizeKm.height > GAME_CONFIG.MAP.MAX_HEIGHT_KM) {
+      throw new Error(`Map height must be between ${GAME_CONFIG.MAP.MIN_HEIGHT_KM} and ${GAME_CONFIG.MAP.MAX_HEIGHT_KM} km`);
     }
   }
 
@@ -75,7 +76,7 @@ export class MapConfiguration {
   }
 
   getNoBuildRadiusMeters(): number {
-    return MapConfiguration.NO_BUILD_RADIUS_METERS;
+    return GAME_CONFIG.MAP.NO_BUILD_RADIUS_METERS;
   }
 
   isValidTowerPosition(position: L.LatLng): boolean {
@@ -84,7 +85,7 @@ export class MapConfiguration {
     }
 
     const distanceToDefend = position.distanceTo(this.defendPoint);
-    if (distanceToDefend < MapConfiguration.NO_BUILD_RADIUS_METERS) {
+    if (distanceToDefend < GAME_CONFIG.MAP.NO_BUILD_RADIUS_METERS) {
       return false;
     }
 
