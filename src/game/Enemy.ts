@@ -12,20 +12,23 @@ export class Enemy extends Phaser.GameObjects.Container {
   private currentWaypointIndex: number;
   private converter: CoordinateConverter;
   private positionLatLng: L.LatLng;
-  private isDead: boolean = false;
+  private _isDead: boolean = false;
   private onReachGoal: () => void;
+  private onKill: () => void;
 
   constructor(
     scene: Phaser.Scene,
     path: RoadPath,
     converter: CoordinateConverter,
-    onReachGoal: () => void
+    onReachGoal: () => void,
+    onKill: () => void
   ) {
     super(scene);
     this.path = path;
     this.converter = converter;
     this.onReachGoal = onReachGoal;
-    
+    this.onKill = onKill;
+
     this.health = GAME_CONFIG.ENEMY.HEALTH;
     this.speed = GAME_CONFIG.ENEMY.SPEED;
     
@@ -46,12 +49,12 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   update(_time: number, delta: number) {
-    if (this.isDead) return;
+    if (this._isDead) return;
 
     // Move along path
     const moveDist = (this.speed * delta) / 1000; // meters to move this frame
     this.moveAlongPath(moveDist);
-    
+
     this.updateScreenPosition();
   }
 
@@ -99,14 +102,32 @@ export class Enemy extends Phaser.GameObjects.Container {
   }
 
   private die() {
-    this.isDead = true;
+    this._isDead = true;
+    this.onKill();
     this.destroy();
-    // TODO: Award money, play sound
   }
 
   private reachGoal() {
-    this.isDead = true;
+    this._isDead = true;
     this.onReachGoal();
     this.destroy();
+  }
+
+  public getHealth(): number {
+    return this.health;
+  }
+
+  public isDead(): boolean {
+    return this._isDead;
+  }
+
+  public getDistanceToGoal(): number {
+    let totalDistance = 0;
+    for (let i = this.currentWaypointIndex; i < this.path.waypoints.length - 1; i++) {
+      const current = i === this.currentWaypointIndex ? this.positionLatLng : this.path.waypoints[i];
+      const next = this.path.waypoints[i + 1];
+      totalDistance += current.distanceTo(next);
+    }
+    return totalDistance;
   }
 }

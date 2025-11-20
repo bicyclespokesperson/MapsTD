@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BoundaryEntry } from '../roadNetwork';
 import { Enemy } from './Enemy';
 import { CoordinateConverter } from '../coordinateConverter';
+import { ECONOMY } from './TowerTypes';
 
 export class WaveManager {
   private scene: Phaser.Scene;
@@ -70,14 +71,15 @@ export class WaveManager {
     if (this.entries.length === 0) return;
 
     const entry = this.entries[Math.floor(Math.random() * this.entries.length)];
-    
+
     const enemy = new Enemy(
       this.scene,
       entry.roadPath,
       this.converter,
-      () => this.onEnemyReachGoal()
+      () => this.onEnemyReachGoal(),
+      () => this.onEnemyKilled()
     );
-    
+
     this.activeEnemies.push(enemy);
     this.enemiesRemainingToSpawn--;
   }
@@ -85,39 +87,57 @@ export class WaveManager {
   private onEnemyReachGoal() {
     this.lives--;
     console.log(`Enemy reached goal! Lives: ${this.lives}`);
-    
-    // Dispatch event or update UI
-    const event = new CustomEvent('game-stats-update', { 
-        detail: { lives: this.lives, money: this.money, wave: this.currentWave } 
-    });
-    window.dispatchEvent(event);
+
+    this.updateStats();
 
     if (this.lives <= 0) {
       this.gameOver();
     }
   }
 
+  private onEnemyKilled() {
+    this.money += ECONOMY.KILL_REWARD;
+    console.log(`Enemy killed! Money: ${this.money}`);
+    this.updateStats();
+  }
+
+  private updateStats() {
+    const event = new CustomEvent('game-stats-update', {
+      detail: { lives: this.lives, money: this.money, wave: this.currentWave }
+    });
+    window.dispatchEvent(event);
+  }
+
   private gameOver() {
     console.log('Game Over');
     this.isWaveActive = false;
     alert('Game Over!');
-    // Reset game?
     this.lives = 10;
     this.currentWave = 0;
     this.activeEnemies.forEach(e => e.destroy());
     this.activeEnemies = [];
-    
-    const event = new CustomEvent('game-stats-update', { 
-        detail: { lives: this.lives, money: this.money, wave: this.currentWave } 
-    });
-    window.dispatchEvent(event);
+
+    this.updateStats();
   }
   
   getStats() {
-      return {
-          lives: this.lives,
-          money: this.money,
-          wave: this.currentWave
-      };
+    return {
+      lives: this.lives,
+      money: this.money,
+      wave: this.currentWave
+    };
+  }
+
+  getActiveEnemies(): Enemy[] {
+    return this.activeEnemies;
+  }
+
+  spendMoney(amount: number): boolean {
+    if (this.money >= amount) {
+      this.money -= amount;
+      this.updateStats();
+      return true;
+    }
+    return false;
   }
 }
