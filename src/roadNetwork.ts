@@ -19,6 +19,92 @@ interface GraphNode {
   neighbors: Map<number, number>; // neighborId -> distance
 }
 
+class MinHeap {
+  private heap: Array<{ nodeId: number; priority: number }> = [];
+  private positions: Map<number, number> = new Map();
+
+  insert(nodeId: number, priority: number): void {
+    const index = this.heap.length;
+    this.heap.push({ nodeId, priority });
+    this.positions.set(nodeId, index);
+    this.bubbleUp(index);
+  }
+
+  extractMin(): { nodeId: number; priority: number } | null {
+    if (this.heap.length === 0) return null;
+    if (this.heap.length === 1) {
+      const item = this.heap.pop()!;
+      this.positions.delete(item.nodeId);
+      return item;
+    }
+
+    const min = this.heap[0];
+    this.positions.delete(min.nodeId);
+
+    const last = this.heap.pop()!;
+    this.heap[0] = last;
+    this.positions.set(last.nodeId, 0);
+    this.bubbleDown(0);
+
+    return min;
+  }
+
+  decreaseKey(nodeId: number, newPriority: number): void {
+    const index = this.positions.get(nodeId);
+    if (index === undefined) return;
+
+    this.heap[index].priority = newPriority;
+    this.bubbleUp(index);
+  }
+
+  isEmpty(): boolean {
+    return this.heap.length === 0;
+  }
+
+  has(nodeId: number): boolean {
+    return this.positions.has(nodeId);
+  }
+
+  private bubbleUp(index: number): void {
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      if (this.heap[index].priority >= this.heap[parentIndex].priority) break;
+
+      this.swap(index, parentIndex);
+      index = parentIndex;
+    }
+  }
+
+  private bubbleDown(index: number): void {
+    while (true) {
+      const leftChild = 2 * index + 1;
+      const rightChild = 2 * index + 2;
+      let smallest = index;
+
+      if (leftChild < this.heap.length && this.heap[leftChild].priority < this.heap[smallest].priority) {
+        smallest = leftChild;
+      }
+      if (rightChild < this.heap.length && this.heap[rightChild].priority < this.heap[smallest].priority) {
+        smallest = rightChild;
+      }
+
+      if (smallest === index) break;
+
+      this.swap(index, smallest);
+      index = smallest;
+    }
+  }
+
+  private swap(i: number, j: number): void {
+    const temp = this.heap[i];
+    this.heap[i] = this.heap[j];
+    this.heap[j] = temp;
+
+    this.positions.set(this.heap[i].nodeId, i);
+    this.positions.set(this.heap[j].nodeId, j);
+  }
+}
+
 export class RoutingGraph {
   private nodes: Map<number, GraphNode> = new Map();
 
@@ -66,40 +152,33 @@ export class RoutingGraph {
   }
 
   findShortestPath(startNodeId: number, endNodeId: number): L.LatLng[] | null {
-    // Dijkstra's Algorithm
+    // Dijkstra's Algorithm with Priority Queue
     const distances = new Map<number, number>();
     const previous = new Map<number, number>();
-    const unvisited = new Set<number>();
+    const heap = new MinHeap();
+    const visited = new Set<number>();
 
     // Initialize
     for (const nodeId of this.nodes.keys()) {
-      distances.set(nodeId, Infinity);
-      unvisited.add(nodeId);
+      const dist = nodeId === startNodeId ? 0 : Infinity;
+      distances.set(nodeId, dist);
+      heap.insert(nodeId, dist);
     }
-    distances.set(startNodeId, 0);
 
-    while (unvisited.size > 0) {
-      // Find unvisited node with smallest distance
-      let currentId: number | null = null;
-      let minDist = Infinity;
+    while (!heap.isEmpty()) {
+      const current = heap.extractMin();
+      if (!current) break;
 
-      for (const nodeId of unvisited) {
-        const dist = distances.get(nodeId)!;
-        if (dist < minDist) {
-          minDist = dist;
-          currentId = nodeId;
-        }
-      }
+      const currentId = current.nodeId;
+      const currentDist = current.priority;
 
-      if (currentId === null || minDist === Infinity) {
-        break; // No reachable nodes left
-      }
+      if (currentDist === Infinity) break; // No more reachable nodes
 
       if (currentId === endNodeId) {
         // Reconstruct path
         const path: L.LatLng[] = [];
         let curr: number | undefined = endNodeId;
-        
+
         while (curr !== undefined) {
           path.unshift(this.nodes.get(curr)!.latLng);
           curr = previous.get(curr);
@@ -107,22 +186,85 @@ export class RoutingGraph {
         return path;
       }
 
-      unvisited.delete(currentId);
+      visited.add(currentId);
 
       // Update neighbors
       const currentNode = this.nodes.get(currentId)!;
       for (const [neighborId, weight] of currentNode.neighbors) {
-        if (!unvisited.has(neighborId)) continue;
+        if (visited.has(neighborId)) continue;
 
-        const alt = distances.get(currentId)! + weight;
-        if (alt < distances.get(neighborId)!) {
+        const alt = currentDist + weight;
+        const oldDist = distances.get(neighborId)!;
+
+        if (alt < oldDist) {
           distances.set(neighborId, alt);
           previous.set(neighborId, currentId);
+          heap.decreaseKey(neighborId, alt);
         }
       }
     }
 
     return null; // No path found
+  }
+
+  computeShortestPathsFrom(sourceNodeId: number): { distances: Map<number, number>; previous: Map<number, number> } {
+    // Run Dijkstra once to find shortest paths from source to ALL nodes
+    const distances = new Map<number, number>();
+    const previous = new Map<number, number>();
+    const heap = new MinHeap();
+    const visited = new Set<number>();
+
+    // Initialize
+    for (const nodeId of this.nodes.keys()) {
+      const dist = nodeId === sourceNodeId ? 0 : Infinity;
+      distances.set(nodeId, dist);
+      heap.insert(nodeId, dist);
+    }
+
+    while (!heap.isEmpty()) {
+      const current = heap.extractMin();
+      if (!current) break;
+
+      const currentId = current.nodeId;
+      const currentDist = current.priority;
+
+      if (currentDist === Infinity) break; // No more reachable nodes
+
+      visited.add(currentId);
+
+      // Update neighbors
+      const currentNode = this.nodes.get(currentId)!;
+      for (const [neighborId, weight] of currentNode.neighbors) {
+        if (visited.has(neighborId)) continue;
+
+        const alt = currentDist + weight;
+        const oldDist = distances.get(neighborId)!;
+
+        if (alt < oldDist) {
+          distances.set(neighborId, alt);
+          previous.set(neighborId, currentId);
+          heap.decreaseKey(neighborId, alt);
+        }
+      }
+    }
+
+    return { distances, previous };
+  }
+
+  reconstructPath(endNodeId: number, previous: Map<number, number>): L.LatLng[] | null {
+    if (!previous.has(endNodeId)) {
+      return null; // No path to this node
+    }
+
+    const path: L.LatLng[] = [];
+    let curr: number | undefined = endNodeId;
+
+    while (curr !== undefined) {
+      path.push(this.nodes.get(curr)!.latLng);
+      curr = previous.get(curr);
+    }
+
+    return path;
   }
 
   findClosestNode(point: L.LatLng): number | null {
@@ -170,34 +312,37 @@ export class RoadNetwork {
       return [];
     }
 
+    // 2. Run Dijkstra ONCE from target to compute all shortest paths
+    const { previous } = this.graph.computeShortestPathsFrom(targetNodeId);
+
     for (const road of this.roads) {
       const boundaryPoints = this.findRoadBoundaryIntersections(road);
 
       for (const bp of boundaryPoints) {
-        // 2. Find closest graph node to entry point
+        // 3. Find closest graph node to entry point
         // Since intersections happen on segments, we can look at the road's nodes.
         // The intersection is on the segment between points[i] and points[i+1].
         // So the closest node is either nodeIds[i] or nodeIds[i+1].
-        
+
         const p1 = road.points[bp.pointIndex];
         const p2 = road.points[bp.pointIndex + 1];
         const id1 = road.nodeIds[bp.pointIndex];
         const id2 = road.nodeIds[bp.pointIndex + 1];
-        
+
         const d1 = bp.position.distanceTo(p1);
         const d2 = bp.position.distanceTo(p2);
-        
+
         const startNodeId = d1 < d2 ? id1 : id2;
 
-        // 3. Calculate path
-        const pathPoints = this.graph.findShortestPath(startNodeId, targetNodeId);
-        
+        // 4. Reconstruct path from cached results
+        const pathPoints = this.graph.reconstructPath(startNodeId, previous);
+
         if (pathPoints && pathPoints.length > 0) {
           // Prepend the exact boundary intersection point
           pathPoints.unshift(bp.position);
           // Append the exact target point
           pathPoints.push(targetPoint);
-          
+
           entries.push({
             position: bp.position,
             roadPath: {

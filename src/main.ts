@@ -86,19 +86,29 @@ class GameScene extends Phaser.Scene {
 
 
 
-  async loadRoadsFromOSM(bounds: L.LatLngBounds, defendPoint: L.LatLng) {
+  async loadRoadsFromOSM(bounds: L.LatLngBounds, defendPoint: L.LatLng | null, onProgress?: (message: string) => void) {
     console.log('Loading roads from OSM...');
 
     try {
+      if (onProgress) onProgress('Querying OpenStreetMap data...');
       const client = new OverpassClient();
       const roads = await client.queryRoads(bounds);
 
+      if (onProgress) onProgress('Building road network...');
       this.roadNetwork = new RoadNetwork(roads, bounds);
-      this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
-      
-      this.waveManager.setEntries(this.entries);
 
-      console.log(`Loaded ${roads.length} roads, ${this.entries.length} entry points`);
+      // Only calculate entries if we have a real defend point
+      if (defendPoint) {
+        if (onProgress) onProgress('Finding entry points...');
+        this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
+
+        if (onProgress) onProgress('Initializing game...');
+        this.waveManager.setEntries(this.entries);
+        console.log(`Loaded ${roads.length} roads, ${this.entries.length} entry points`);
+      } else {
+        console.log(`Loaded ${roads.length} roads`);
+      }
+
       return true;
     } catch (error) {
       console.error('Failed to load roads:', error);
@@ -559,29 +569,17 @@ phaserGame.events.once('ready', () => {
     // onBoundsSelected: Auto-load roads
     async (bounds) => {
       const loadingOverlay = document.getElementById('loading-overlay');
+      const loadingText = document.getElementById('loading-text');
       if (loadingOverlay) loadingOverlay.classList.remove('hidden');
-      
+
       try {
-        // We need a temporary defend point to load roads, but we don't have one yet.
-        // However, loadRoadsFromOSM currently requires a defend point to find entries.
-        // We should split the loading: 1. Load roads, 2. Find entries later.
-        // For now, let's just load the roads and we'll find entries when the defend point is set.
-        
-        // Actually, let's modify loadRoadsFromOSM to allow null defend point
-        // Or better, just load the network first.
-        
-        // Let's check GameScene.loadRoadsFromOSM
-        // It calls roadNetwork.findBoundaryEntries(defendPoint)
-        
-        // We can pass the center of the bounds as a dummy defend point for now, 
-        // just to get the roads loaded and visualized.
-        // Real entries will be recalculated when defend point is chosen?
-        // The user flow is: Select Bounds -> (Auto Load Roads) -> Select Defend Point -> (Recalculate Entries/Start)
-        
-        // Let's try to load roads immediately.
-        await gameScene.loadRoadsFromOSM(bounds, bounds.getCenter());
+        // Pass null for defendPoint - we'll calculate entries when user places defend point
+        await gameScene.loadRoadsFromOSM(bounds, null, (message) => {
+          if (loadingText) loadingText.textContent = message;
+        });
       } finally {
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        if (loadingText) loadingText.textContent = 'Loading Map Data...';
       }
     },
     // validateDefendPoint: Check if point is on road
