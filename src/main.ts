@@ -283,6 +283,9 @@ class UIManager {
   private moneyDisplay: HTMLElement;
   private waveDisplay: HTMLElement;
 
+  private wavePreview: HTMLElement;
+  private wavePreviewContent: HTMLElement;
+
   private currentState: SelectionState | null = null;
   private towerShopPanel: TowerShopPanel;
   private towerInfoPanel: TowerInfoPanel;
@@ -308,6 +311,9 @@ class UIManager {
     this.livesDisplay = document.getElementById('livesDisplay') as HTMLElement;
     this.moneyDisplay = document.getElementById('moneyDisplay') as HTMLElement;
     this.waveDisplay = document.getElementById('waveDisplay') as HTMLElement;
+
+    this.wavePreview = document.getElementById('wave-preview') as HTMLElement;
+    this.wavePreviewContent = document.getElementById('wave-preview-content') as HTMLElement;
 
     this.towerShopPanel = new TowerShopPanel((type) => {
       if (type) {
@@ -384,7 +390,46 @@ class UIManager {
       this.moneyDisplay.textContent = money.toString();
       this.waveDisplay.textContent = wave.toString();
       this.towerShopPanel.updateMoney(money);
+      this.updateWavePreview();
     });
+
+    window.addEventListener('game-over', (e: any) => {
+      const { wave, kills, moneyEarned } = e.detail;
+      this.showGameOver(wave, kills, moneyEarned);
+    });
+  }
+
+  private showGameOver(wave: number, kills: number, moneyEarned: number) {
+    const overlay = document.getElementById('game-over-overlay');
+    const waveEl = document.getElementById('game-over-wave');
+    const killsEl = document.getElementById('game-over-kills');
+    const moneyEl = document.getElementById('game-over-money');
+    const playAgainBtn = document.getElementById('play-again-btn');
+
+    if (waveEl) waveEl.textContent = wave.toString();
+    if (killsEl) killsEl.textContent = kills.toString();
+    if (moneyEl) moneyEl.textContent = `$${moneyEarned}`;
+
+    if (overlay) overlay.classList.remove('hidden');
+
+    if (playAgainBtn) {
+      playAgainBtn.onclick = () => {
+        if (overlay) overlay.classList.add('hidden');
+      };
+    }
+  }
+
+  private updateWavePreview() {
+    if (!this.wavePreviewContent) return;
+
+    const preview = this.gameScene.waveManager.getNextWavePreview();
+
+    this.wavePreviewContent.innerHTML = preview.map(item => `
+      <div class="wave-preview-item">
+        <div class="enemy-icon" style="background-color: ${item.color}"></div>
+        <span class="enemy-count">${item.count}</span>
+      </div>
+    `).join('');
   }
 
   private setupMapListeners() {
@@ -458,9 +503,9 @@ class UIManager {
   onStateChange(state: SelectionState) {
     this.currentState = state;
 
-    // Enable place defend button if we have bounds but no config yet
-    // OR if we have a config (re-placing defend point)
-    this.placeDefendBtn.disabled = !state.bounds;
+    // Enable place defend button only if we have bounds but no config yet
+    // Once defend point is placed (config exists), lock the button
+    this.placeDefendBtn.disabled = !state.bounds || state.config !== null;
 
     // Enable share/start only if we have a full config
     this.shareBtn.disabled = !state.config;
@@ -473,6 +518,8 @@ class UIManager {
     if (state.config) {
       this.gameScene.setMapConfiguration(state.config);
       this.towerShopPanel.show();
+      this.wavePreview.classList.remove('hidden');
+      this.updateWavePreview();
     }
   }
 

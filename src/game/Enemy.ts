@@ -2,9 +2,7 @@ import Phaser from 'phaser';
 import * as L from 'leaflet';
 import { CoordinateConverter } from '../coordinateConverter';
 import { RoadPath } from '../roadNetwork';
-import { EnemyType, ENEMY_CONFIGS, EnemyConfig } from './EnemyTypes';
-
-import { GAME_CONFIG } from '../config';
+import { EnemyType, ENEMY_CONFIGS, EnemyConfig, ENEMY_STYLE } from './EnemyTypes';
 
 export class Enemy extends Phaser.GameObjects.Container {
   private health: number;
@@ -48,7 +46,7 @@ export class Enemy extends Phaser.GameObjects.Container {
 
     // Create visual - health as pie chart with size based on enemy type
     const border = scene.add.circle(0, 0, this.config.size + 2);
-    border.setStrokeStyle(GAME_CONFIG.ENEMY.BORDER_WIDTH, GAME_CONFIG.ENEMY.BORDER_COLOR);
+    border.setStrokeStyle(ENEMY_STYLE.BORDER_WIDTH, ENEMY_STYLE.BORDER_COLOR);
 
     this.healthArc = scene.add.arc(0, 0, this.config.size, 0, 360, false, this.config.color);
 

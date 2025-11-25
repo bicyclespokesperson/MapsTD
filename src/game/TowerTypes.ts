@@ -163,14 +163,6 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
   },
 };
 
-export const ECONOMY = {
-  STARTING_MONEY: 100,
-  KILL_REWARD: 15,
-  WAVE_BONUS_BASE: 50,
-  WAVE_BONUS_MULTIPLIER: 25,
-  SELL_REFUND_PERCENT: 0.75,
-};
-
 export const TARGETING_LABELS: Record<TargetingMode, string> = {
   FIRST: 'First (Closest to Goal)',
   LAST: 'Last (Furthest from Goal)',

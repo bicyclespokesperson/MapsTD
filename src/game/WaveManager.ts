@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { BoundaryEntry } from '../roadNetwork';
 import { Enemy } from './Enemy';
 import { CoordinateConverter } from '../coordinateConverter';
-import { EnemyType } from './EnemyTypes';
+import { EnemyType, ENEMY_CONFIGS } from './EnemyTypes';
 import { GAME_CONFIG } from '../config';
 
 export class WaveManager {
@@ -17,9 +17,11 @@ export class WaveManager {
   
   private activeEnemies: Enemy[] = [];
   private lives: number = GAME_CONFIG.ECONOMY.STARTING_LIVES;
-  private money: number = 100;
-  
+  private money: number = GAME_CONFIG.ECONOMY.STARTING_MONEY;
+
   private isWaveActive: boolean = false;
+  private totalKills: number = 0;
+  private totalMoneyEarned: number = 0;
 
   constructor(scene: Phaser.Scene, converter: CoordinateConverter) {
     this.scene = scene;
@@ -122,6 +124,8 @@ export class WaveManager {
   private onEnemyKilled(enemy: Enemy) {
     const reward = enemy.getReward();
     this.money += reward;
+    this.totalKills++;
+    this.totalMoneyEarned += reward;
     console.log(`${enemy.type} killed! Reward: $${reward}, Total money: ${this.money}`);
     this.updateStats();
   }
@@ -136,9 +140,20 @@ export class WaveManager {
   private gameOver() {
     console.log('Game Over');
     this.isWaveActive = false;
-    alert('Game Over!');
+
+    const gameOverEvent = new CustomEvent('game-over', {
+      detail: {
+        wave: this.currentWave,
+        kills: this.totalKills,
+        moneyEarned: this.totalMoneyEarned,
+      }
+    });
+    window.dispatchEvent(gameOverEvent);
+
     this.lives = GAME_CONFIG.ECONOMY.STARTING_LIVES;
     this.currentWave = 0;
+    this.totalKills = 0;
+    this.totalMoneyEarned = 0;
     this.activeEnemies.forEach(e => e.destroy());
     this.activeEnemies = [];
 
@@ -169,5 +184,59 @@ export class WaveManager {
   addMoney(amount: number): void {
     this.money += amount;
     this.updateStats();
+  }
+
+  getNextWavePreview(): { type: EnemyType; count: number; color: string }[] {
+    const nextWave = this.currentWave + 1;
+    const totalEnemies = 5 + (nextWave * 5);
+
+    // Calculate expected composition based on wave probabilities
+    let scoutPercent = 0;
+    let normalPercent = 0;
+    let tankPercent = 0;
+
+    if (nextWave <= 2) {
+      normalPercent = 1;
+    } else if (nextWave <= 5) {
+      scoutPercent = 0.3;
+      normalPercent = 0.6;
+      tankPercent = 0.1;
+    } else if (nextWave <= 10) {
+      scoutPercent = 0.2;
+      normalPercent = 0.5;
+      tankPercent = 0.3;
+    } else {
+      scoutPercent = 0.3;
+      normalPercent = 0.3;
+      tankPercent = 0.4;
+    }
+
+    const toHexColor = (color: number) => '#' + color.toString(16).padStart(6, '0');
+
+    const result: { type: EnemyType; count: number; color: string }[] = [];
+
+    if (scoutPercent > 0) {
+      result.push({
+        type: 'SCOUT',
+        count: Math.round(totalEnemies * scoutPercent),
+        color: toHexColor(ENEMY_CONFIGS.SCOUT.color),
+      });
+    }
+    if (normalPercent > 0) {
+      result.push({
+        type: 'NORMAL',
+        count: Math.round(totalEnemies * normalPercent),
+        color: toHexColor(ENEMY_CONFIGS.NORMAL.color),
+      });
+    }
+    if (tankPercent > 0) {
+      result.push({
+        type: 'TANK',
+        count: Math.round(totalEnemies * tankPercent),
+        color: toHexColor(ENEMY_CONFIGS.TANK.color),
+      });
+    }
+
+    return result;
   }
 }

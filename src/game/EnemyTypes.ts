@@ -9,6 +9,11 @@ export interface EnemyConfig {
   size: number;
 }
 
+export const ENEMY_STYLE = {
+  BORDER_COLOR: 0xffffff,
+  BORDER_WIDTH: 2,
+};
+
 export const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
   SCOUT: {
     name: 'Scout',

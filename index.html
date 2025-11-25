@@ -16,7 +16,12 @@
           
           <button id="placeDefendBtn" disabled>Place Defend Point</button>
           <p class="help-text">2. Click a road to defend</p>
-          
+
+          <div id="wave-preview" class="hidden">
+            <p class="wave-preview-label">Next Wave:</p>
+            <div id="wave-preview-content"></div>
+          </div>
+
           <button id="startWaveBtn" disabled>Start Wave</button>
           <p class="help-text">3. Defend!</p>
           
@@ -66,6 +71,27 @@
     <div id="loading-overlay" class="hidden">
       <div class="spinner"></div>
       <div id="loading-text" class="loading-text">Loading Map Data...</div>
+    </div>
+
+    <div id="game-over-overlay" class="hidden">
+      <div class="game-over-content">
+        <h1 class="game-over-title">GAME OVER</h1>
+        <div class="game-over-stats">
+          <div class="game-over-stat">
+            <span class="stat-label">Wave Reached</span>
+            <span id="game-over-wave" class="stat-value">0</span>
+          </div>
+          <div class="game-over-stat">
+            <span class="stat-label">Enemies Killed</span>
+            <span id="game-over-kills" class="stat-value">0</span>
+          </div>
+          <div class="game-over-stat">
+            <span class="stat-label">Money Earned</span>
+            <span id="game-over-money" class="stat-value">$0</span>
+          </div>
+        </div>
+        <button id="play-again-btn" class="play-again-btn">Play Again</button>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

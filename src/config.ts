@@ -1,10 +1,6 @@
 import { LatLngExpression } from 'leaflet';
 
 export const GAME_CONFIG = {
-  ENEMY: {
-    BORDER_COLOR: 0xffffff,
-    BORDER_WIDTH: 2,
-  },
   MAP: {
     DEFAULT_CENTER: [37.7749, -122.4194] as LatLngExpression,
     DEFAULT_ZOOM: 15,
@@ -21,7 +17,7 @@ export const GAME_CONFIG = {
     NO_BUILD_OPACITY: 0.1,
   },
   ECONOMY: {
-    STARTING_MONEY: 200,
-    STARTING_LIVES: 10,
+    STARTING_MONEY: 100,
+    STARTING_LIVES: 2,
   },
 };

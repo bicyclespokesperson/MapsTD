@@ -82,6 +82,50 @@ body {
   margin: -5px 0 10px 0;
 }
 
+/* Wave Preview */
+#wave-preview {
+  background: rgba(100, 108, 255, 0.1);
+  border: 1px solid rgba(100, 108, 255, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+
+#wave-preview.hidden {
+  display: none;
+}
+
+.wave-preview-label {
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0 0 8px 0;
+}
+
+#wave-preview-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.wave-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.enemy-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.enemy-count {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #fff;
+}
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -246,6 +290,104 @@ button:disabled {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Game Over Overlay */
+#game-over-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(40, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.98) 100%);
+  z-index: 3000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#game-over-overlay.hidden {
+  display: none;
+}
+
+.game-over-content {
+  text-align: center;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.game-over-title {
+  font-size: 4rem;
+  font-weight: bold;
+  color: #ff4444;
+  text-shadow: 0 0 20px rgba(255, 68, 68, 0.5), 0 0 40px rgba(255, 68, 68, 0.3);
+  margin-bottom: 40px;
+  letter-spacing: 8px;
+}
+
+.game-over-stats {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  margin-bottom: 50px;
+}
+
+.game-over-stat {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px 30px;
+  min-width: 150px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.9rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.play-again-btn {
+  background: linear-gradient(135deg, #646cff 0%, #4850b8 100%);
+  border: none;
+  color: white;
+  padding: 16px 48px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(100, 108, 255, 0.4);
+}
+
+.play-again-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(100, 108, 255, 0.6);
+}
+
+.play-again-btn:active {
+  transform: translateY(0);
 }
 
 /* Tower Shop Panel */
