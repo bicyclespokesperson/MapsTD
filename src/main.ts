@@ -68,18 +68,23 @@ class GameScene extends Phaser.Scene {
 
     if (this.waveManager) {
       this.waveManager.update(time, delta);
-    }
 
-    if (this.towerManager && this.waveManager) {
-      this.towerManager.updateAll(delta, this.waveManager.getActiveEnemies());
-    }
+      // Skip tower/projectile updates if paused
+      if (this.waveManager.isPaused()) return;
 
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const projectile = this.projectiles[i];
-      if (!projectile.active) {
-        this.projectiles.splice(i, 1);
-      } else {
-        projectile.update(delta);
+      const adjustedDelta = delta * this.waveManager.getSpeed();
+
+      if (this.towerManager) {
+        this.towerManager.updateAll(adjustedDelta, this.waveManager.getActiveEnemies());
+      }
+
+      for (let i = this.projectiles.length - 1; i >= 0; i--) {
+        const projectile = this.projectiles[i];
+        if (!projectile.active) {
+          this.projectiles.splice(i, 1);
+        } else {
+          projectile.update(adjustedDelta);
+        }
       }
     }
   }
@@ -259,6 +264,45 @@ class GameScene extends Phaser.Scene {
       this.towerManager.selectTower(null);
     }
   }
+
+  reset() {
+    this.exitPlacementMode();
+
+    if (this.towerManager) {
+      this.towerManager.clearAll();
+      this.towerManager = null;
+    }
+
+    this.waveManager.reset();
+
+    for (const projectile of this.projectiles) {
+      projectile.destroy();
+    }
+    this.projectiles = [];
+
+    this.roadNetwork = null;
+    this.entries = [];
+    this.mapConfig = null;
+
+    this.roadGraphics.clear();
+    this.entryGraphics.clear();
+  }
+
+  restartGame() {
+    this.exitPlacementMode();
+
+    if (this.towerManager) {
+      this.towerManager.clearAll();
+    }
+
+    for (const projectile of this.projectiles) {
+      projectile.destroy();
+    }
+    this.projectiles = [];
+
+    this.waveManager.reset();
+    this.waveManager.setEntries(this.entries);
+  }
 }
 
 class UIManager {
@@ -271,6 +315,9 @@ class UIManager {
   private shareBtn: HTMLButtonElement;
   private loadConfigBtn: HTMLButtonElement;
   private startWaveBtn: HTMLButtonElement;
+  private pauseBtn: HTMLButtonElement;
+  private speedBtn: HTMLButtonElement;
+  private gameControls: HTMLElement;
 
   private modal: HTMLElement;
   private modalTitle: HTMLElement;
@@ -300,6 +347,9 @@ class UIManager {
     this.shareBtn = document.getElementById('shareBtn') as HTMLButtonElement;
     this.loadConfigBtn = document.getElementById('loadConfigBtn') as HTMLButtonElement;
     this.startWaveBtn = document.getElementById('startWaveBtn') as HTMLButtonElement;
+    this.pauseBtn = document.getElementById('pauseBtn') as HTMLButtonElement;
+    this.speedBtn = document.getElementById('speedBtn') as HTMLButtonElement;
+    this.gameControls = document.getElementById('game-controls') as HTMLElement;
 
     this.modal = document.getElementById('modal') as HTMLElement;
     this.modalTitle = document.getElementById('modalTitle') as HTMLElement;
@@ -339,6 +389,13 @@ class UIManager {
       if (this.selector.currentMode === 'drawing-bounds') {
         this.selector.cancelSelection();
       } else {
+        this.gameScene.reset();
+        this.selector.clearSelection();
+        this.towerShopPanel.hide();
+        this.towerInfoPanel.hide();
+        this.wavePreview.classList.add('hidden');
+        this.gameControls.classList.add('hidden');
+        this.resetGameControls();
         this.selector.startBoundsSelection();
       }
     });
@@ -373,6 +430,20 @@ class UIManager {
         this.gameScene.waveManager.startNextWave();
     });
 
+    this.pauseBtn.addEventListener('click', () => {
+      const isPaused = this.gameScene.waveManager.togglePause();
+      this.pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+      this.pauseBtn.classList.toggle('paused', isPaused);
+    });
+
+    this.speedBtn.addEventListener('click', () => {
+      const currentSpeed = this.gameScene.waveManager.getSpeed();
+      const newSpeed = currentSpeed === 1 ? 2 : 1;
+      this.gameScene.waveManager.setSpeed(newSpeed);
+      this.speedBtn.textContent = `${newSpeed}x`;
+      this.speedBtn.classList.toggle('fast', newSpeed === 2);
+    });
+
     this.modalClose.addEventListener('click', () => this.closeModal());
     this.modalCancel.addEventListener('click', () => this.closeModal());
 
@@ -396,7 +467,16 @@ class UIManager {
     window.addEventListener('game-over', (e: any) => {
       const { wave, kills, moneyEarned } = e.detail;
       this.showGameOver(wave, kills, moneyEarned);
+      this.resetGameControls();
     });
+  }
+
+  private resetGameControls() {
+    this.pauseBtn.textContent = 'Pause';
+    this.pauseBtn.classList.remove('paused');
+    this.speedBtn.textContent = '1x';
+    this.speedBtn.classList.remove('fast');
+    this.gameScene.waveManager.setSpeed(1);
   }
 
   private showGameOver(wave: number, kills: number, moneyEarned: number) {
@@ -415,6 +495,13 @@ class UIManager {
     if (playAgainBtn) {
       playAgainBtn.onclick = () => {
         if (overlay) overlay.classList.add('hidden');
+        this.gameScene.reset();
+        this.selector.clearSelection();
+        this.resetGameControls();
+        this.towerInfoPanel.hide();
+        this.towerShopPanel.hide();
+        this.wavePreview.classList.add('hidden');
+        this.gameControls.classList.add('hidden');
       };
     }
   }
@@ -519,6 +606,7 @@ class UIManager {
       this.gameScene.setMapConfiguration(state.config);
       this.towerShopPanel.show();
       this.wavePreview.classList.remove('hidden');
+      this.gameControls.classList.remove('hidden');
       this.updateWavePreview();
     }
   }

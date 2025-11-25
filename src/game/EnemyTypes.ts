@@ -1,4 +1,4 @@
-export type EnemyType = 'SCOUT' | 'NORMAL' | 'TANK';
+export type EnemyType = 'SCOUT' | 'NORMAL' | 'TANK' | 'BOSS';
 
 export interface EnemyConfig {
   name: string;
@@ -38,5 +38,13 @@ export const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
     reward: 30,
     color: 0x8b4513,
     size: 10,
+  },
+  BOSS: {
+    name: 'Boss',
+    health: 1500,
+    speed: 50,
+    reward: 100,
+    color: 0x800080,
+    size: 16,
   },
 };

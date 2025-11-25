@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
 import { MapConfiguration } from './mapConfiguration';
+import { GAME_CONFIG } from './config';
 
 export type SelectionMode = 'none' | 'drawing-bounds' | 'placing-defend';
 
@@ -20,6 +21,7 @@ export class MapSelector {
 
   private startPoint: L.LatLng | null = null;
   private tempRectangle: L.Rectangle | null = null;
+  private sizeTooltip: L.Tooltip | null = null;
 
   private onStateChange: (state: SelectionState) => void;
   private onBoundsSelected?: (bounds: L.LatLngBounds) => void;
@@ -62,7 +64,7 @@ export class MapSelector {
     }
 
     this.state.mode = 'placing-defend';
-    this.map.getContainer().style.cursor = 'crosshair';
+    this.map.getContainer().classList.add('defend-cursor');
 
     this.map.once('click', this.onDefendPointClick, this);
 
@@ -76,11 +78,17 @@ export class MapSelector {
     this.map.off('click', this.onDefendPointClick, this);
 
     this.map.getContainer().style.cursor = '';
+    this.map.getContainer().classList.remove('defend-cursor');
     this.map.dragging.enable();
 
     if (this.tempRectangle) {
       this.tempRectangle.remove();
       this.tempRectangle = null;
+    }
+
+    if (this.sizeTooltip) {
+      this.sizeTooltip.remove();
+      this.sizeTooltip = null;
     }
 
     this.startPoint = null;
@@ -178,6 +186,15 @@ export class MapSelector {
       weight: 2,
       fillOpacity: 0.1,
     }).addTo(this.map);
+
+    this.sizeTooltip = L.tooltip({
+      permanent: true,
+      direction: 'center',
+      className: 'size-tooltip',
+    })
+      .setLatLng(this.startPoint)
+      .setContent('0m × 0m')
+      .addTo(this.map);
   };
 
   private onMouseMove = (e: L.LeafletMouseEvent): void => {
@@ -185,26 +202,58 @@ export class MapSelector {
 
     const bounds = L.latLngBounds([this.startPoint, e.latlng]);
     this.tempRectangle.setBounds(bounds);
+
+    const { widthKm, heightKm } = this.getBoundsSize(bounds);
+    const status = this.getSizeStatus(widthKm, heightKm);
+    const color = this.getStatusColor(status);
+
+    this.tempRectangle.setStyle({ color });
+
+    if (this.sizeTooltip) {
+      const widthStr = this.formatSize(widthKm);
+      const heightStr = this.formatSize(heightKm);
+      this.sizeTooltip.setLatLng(bounds.getCenter());
+      this.sizeTooltip.setContent(`${widthStr} × ${heightStr}`);
+    }
   };
 
   private onMouseUp = (e: L.LeafletMouseEvent): void => {
     if (!this.startPoint || !this.tempRectangle) return;
 
     const bounds = L.latLngBounds([this.startPoint, e.latlng]);
+    const { widthKm, heightKm } = this.getBoundsSize(bounds);
+    const { MIN_WIDTH_KM, MAX_WIDTH_KM, MIN_HEIGHT_KM, MAX_HEIGHT_KM } = GAME_CONFIG.MAP;
+
+    if (widthKm < MIN_WIDTH_KM || heightKm < MIN_HEIGHT_KM) {
+      alert(`Selection too small. Minimum size is ${MIN_WIDTH_KM}km × ${MIN_HEIGHT_KM}km`);
+      this.cancelSelection();
+      return;
+    }
+
+    if (widthKm > MAX_WIDTH_KM || heightKm > MAX_HEIGHT_KM) {
+      alert(`Selection too large. Maximum size is ${MAX_WIDTH_KM}km × ${MAX_HEIGHT_KM}km`);
+      this.cancelSelection();
+      return;
+    }
+
+    if (this.sizeTooltip) {
+      this.sizeTooltip.remove();
+      this.sizeTooltip = null;
+    }
 
     if (this.boundsRectangle) {
       this.boundsRectangle.remove();
     }
 
     this.boundsRectangle = this.tempRectangle;
-    this.boundsRectangle.setStyle({ weight: 3 });
+    this.boundsRectangle.setStyle({ weight: 3, color: '#3388ff' });
 
     this.tempRectangle = null;
     this.startPoint = null;
 
     this.state.bounds = bounds;
     this.cancelSelection();
-    
+
     if (this.onBoundsSelected) {
         this.onBoundsSelected(bounds);
     }
@@ -261,6 +310,7 @@ export class MapSelector {
 
       this.state.mode = 'none';
       this.map.getContainer().style.cursor = '';
+      this.map.getContainer().classList.remove('defend-cursor');
       this.notifyStateChange();
     } catch (error) {
       alert(`Error: ${(error as Error).message}`);
@@ -270,5 +320,53 @@ export class MapSelector {
 
   private notifyStateChange(): void {
     this.onStateChange(this.getState());
+  }
+
+  private getBoundsSize(bounds: L.LatLngBounds): { widthKm: number; heightKm: number } {
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const nw = L.latLng(ne.lat, sw.lng);
+
+    const widthM = sw.distanceTo(L.latLng(sw.lat, ne.lng));
+    const heightM = sw.distanceTo(nw);
+
+    return {
+      widthKm: widthM / 1000,
+      heightKm: heightM / 1000,
+    };
+  }
+
+  private getSizeStatus(widthKm: number, heightKm: number): 'valid' | 'warning' | 'error' {
+    const { MIN_WIDTH_KM, MAX_WIDTH_KM, MIN_HEIGHT_KM, MAX_HEIGHT_KM } = GAME_CONFIG.MAP;
+
+    if (widthKm < MIN_WIDTH_KM || heightKm < MIN_HEIGHT_KM) {
+      return 'error';
+    }
+    if (widthKm > MAX_WIDTH_KM || heightKm > MAX_HEIGHT_KM) {
+      return 'error';
+    }
+
+    const widthRatio = widthKm / MAX_WIDTH_KM;
+    const heightRatio = heightKm / MAX_HEIGHT_KM;
+    if (widthRatio > 0.8 || heightRatio > 0.8) {
+      return 'warning';
+    }
+
+    return 'valid';
+  }
+
+  private formatSize(km: number): string {
+    if (km < 1) {
+      return `${Math.round(km * 1000)}m`;
+    }
+    return `${km.toFixed(1)}km`;
+  }
+
+  private getStatusColor(status: 'valid' | 'warning' | 'error'): string {
+    switch (status) {
+      case 'valid': return '#3388ff';
+      case 'warning': return '#ff9800';
+      case 'error': return '#f44336';
+    }
   }
 }

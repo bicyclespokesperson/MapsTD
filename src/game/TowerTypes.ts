@@ -169,3 +169,7 @@ export const TARGETING_LABELS: Record<TargetingMode, string> = {
   CLOSEST: 'Closest to Tower',
   STRONGEST: 'Strongest (Most HP)',
 };
+
+export const ECONOMY = {
+  SELL_REFUND_PERCENT: 0.7,
+};

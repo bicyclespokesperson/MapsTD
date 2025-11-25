@@ -23,6 +23,46 @@ export class WaveManager {
   private totalKills: number = 0;
   private totalMoneyEarned: number = 0;
 
+  private gameSpeed: number = 1;
+  private _isPaused: boolean = false;
+  private bossSpawnedThisWave: boolean = false;
+
+  pause() {
+    this._isPaused = true;
+    this.dispatchSpeedUpdate();
+  }
+
+  resume() {
+    this._isPaused = false;
+    this.dispatchSpeedUpdate();
+  }
+
+  togglePause(): boolean {
+    this._isPaused = !this._isPaused;
+    this.dispatchSpeedUpdate();
+    return this._isPaused;
+  }
+
+  setSpeed(speed: number) {
+    this.gameSpeed = speed;
+    this.dispatchSpeedUpdate();
+  }
+
+  getSpeed(): number {
+    return this.gameSpeed;
+  }
+
+  isPaused(): boolean {
+    return this._isPaused;
+  }
+
+  private dispatchSpeedUpdate() {
+    const event = new CustomEvent('game-speed-update', {
+      detail: { speed: this.gameSpeed, paused: this._isPaused }
+    });
+    window.dispatchEvent(event);
+  }
+
   constructor(scene: Phaser.Scene, converter: CoordinateConverter) {
     this.scene = scene;
     this.converter = converter;
@@ -43,14 +83,19 @@ export class WaveManager {
     this.enemiesRemainingToSpawn = 5 + (this.currentWave * 5); // Simple progression
     this.spawnInterval = Math.max(500, 2000 - (this.currentWave * 100));
     this.isWaveActive = true;
+    this.bossSpawnedThisWave = false;
     console.log(`Starting Wave ${this.currentWave}: ${this.enemiesRemainingToSpawn} enemies`);
   }
 
   update(time: number, delta: number) {
+    if (this._isPaused) return;
+
+    const adjustedDelta = delta * this.gameSpeed;
+
     // Update active enemies
     for (let i = this.activeEnemies.length - 1; i >= 0; i--) {
       const enemy = this.activeEnemies[i];
-      enemy.update(time, delta);
+      enemy.update(time, adjustedDelta);
       if (!enemy.active) { // Check if destroyed
          this.activeEnemies.splice(i, 1);
       }
@@ -59,7 +104,7 @@ export class WaveManager {
     if (!this.isWaveActive) return;
 
     if (this.enemiesRemainingToSpawn > 0) {
-      this.spawnTimer += delta;
+      this.spawnTimer += adjustedDelta;
       if (this.spawnTimer >= this.spawnInterval) {
         this.spawnEnemy();
         this.spawnTimer = 0;
@@ -74,7 +119,14 @@ export class WaveManager {
     if (this.entries.length === 0) return;
 
     const entry = this.entries[Math.floor(Math.random() * this.entries.length)];
-    const enemyType = this.getEnemyTypeForWave();
+
+    let enemyType: EnemyType;
+    if (this.currentWave % 5 === 0 && this.currentWave > 0 && !this.bossSpawnedThisWave) {
+      enemyType = 'BOSS';
+      this.bossSpawnedThisWave = true;
+    } else {
+      enemyType = this.getEnemyTypeForWave();
+    }
 
     const enemy = new Enemy(
       this.scene,
@@ -160,6 +212,26 @@ export class WaveManager {
     this.updateStats();
   }
   
+  reset() {
+    this.lives = GAME_CONFIG.ECONOMY.STARTING_LIVES;
+    this.money = GAME_CONFIG.ECONOMY.STARTING_MONEY;
+    this.currentWave = 0;
+    this.totalKills = 0;
+    this.totalMoneyEarned = 0;
+    this.enemiesRemainingToSpawn = 0;
+    this.spawnTimer = 0;
+    this.isWaveActive = false;
+    this.gameSpeed = 1;
+    this._isPaused = false;
+    this.bossSpawnedThisWave = false;
+    this.entries = [];
+
+    this.activeEnemies.forEach(e => e.destroy());
+    this.activeEnemies = [];
+
+    this.updateStats();
+  }
+
   getStats() {
     return {
       lives: this.lives,
@@ -234,6 +306,14 @@ export class WaveManager {
         type: 'TANK',
         count: Math.round(totalEnemies * tankPercent),
         color: toHexColor(ENEMY_CONFIGS.TANK.color),
+      });
+    }
+
+    if (nextWave % 5 === 0 && nextWave > 0) {
+      result.unshift({
+        type: 'BOSS',
+        count: 1,
+        color: toHexColor(ENEMY_CONFIGS.BOSS.color),
       });
     }
 

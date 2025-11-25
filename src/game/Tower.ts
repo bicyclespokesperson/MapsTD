@@ -29,7 +29,7 @@ export class Tower extends Phaser.GameObjects.Container {
   public statistics: TowerStatistics;
 
   private currentTarget: Enemy | null = null;
-  private lastFireTime: number = 0;
+  private timeSinceLastFire: number = 0;
   private rangeCircle: Phaser.GameObjects.Arc;
   private body: Phaser.GameObjects.Arc;
   private barrel: Phaser.GameObjects.Line;
@@ -89,6 +89,8 @@ export class Tower extends Phaser.GameObjects.Container {
   }
 
   public update(delta: number, enemies: Enemy[]): void {
+    this.timeSinceLastFire += delta;
+
     if (!this.currentTarget || this.currentTarget.isDead() || !this.isInRange(this.currentTarget)) {
       this.currentTarget = this.findTarget(enemies);
     }
@@ -96,10 +98,9 @@ export class Tower extends Phaser.GameObjects.Container {
     if (this.currentTarget) {
       this.aimAt(this.currentTarget);
 
-      const now = Date.now();
-      if (now - this.lastFireTime >= this.stats.fireRateMs) {
+      if (this.timeSinceLastFire >= this.stats.fireRateMs) {
         this.fire(this.currentTarget);
-        this.lastFireTime = now;
+        this.timeSinceLastFire = 0;
       }
     }
   }

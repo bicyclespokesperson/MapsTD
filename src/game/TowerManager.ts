@@ -125,4 +125,15 @@ export class TowerManager {
   public getTotalValue(): number {
     return this.towers.reduce((sum, tower) => sum + tower.getTotalInvested(), 0);
   }
+
+  public clearAll(): void {
+    if (this.selectedTower) {
+      this.selectedTower = null;
+      this.scene.events.emit('tower-deselected');
+    }
+    for (const tower of this.towers) {
+      tower.destroy();
+    }
+    this.towers = [];
+  }
 }
