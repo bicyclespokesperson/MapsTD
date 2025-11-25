@@ -97,7 +97,7 @@ export class Tower extends Phaser.GameObjects.Container {
       this.aimAt(this.currentTarget);
 
       const now = Date.now();
-      if (now - this.lastFireTime >= this.stats.fireRate) {
+      if (now - this.lastFireTime >= this.stats.fireRateMs) {
         this.fire(this.currentTarget);
         this.lastFireTime = now;
       }

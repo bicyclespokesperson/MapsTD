@@ -2,8 +2,8 @@ import Phaser from 'phaser';
 import { BoundaryEntry } from '../roadNetwork';
 import { Enemy } from './Enemy';
 import { CoordinateConverter } from '../coordinateConverter';
-import { ECONOMY } from './TowerTypes';
 import { EnemyType } from './EnemyTypes';
+import { GAME_CONFIG } from '../config';
 
 export class WaveManager {
   private scene: Phaser.Scene;
@@ -16,7 +16,7 @@ export class WaveManager {
   private spawnInterval: number = 2000; // ms
   
   private activeEnemies: Enemy[] = [];
-  private lives: number = 10;
+  private lives: number = GAME_CONFIG.ECONOMY.STARTING_LIVES;
   private money: number = 100;
   
   private isWaveActive: boolean = false;
@@ -137,7 +137,7 @@ export class WaveManager {
     console.log('Game Over');
     this.isWaveActive = false;
     alert('Game Over!');
-    this.lives = 10;
+    this.lives = GAME_CONFIG.ECONOMY.STARTING_LIVES;
     this.currentWave = 0;
     this.activeEnemies.forEach(e => e.destroy());
     this.activeEnemies = [];

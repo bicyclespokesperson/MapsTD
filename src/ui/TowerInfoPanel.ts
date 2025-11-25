@@ -100,7 +100,7 @@ export class TowerInfoPanel {
       </div>
       <div class="tower-info-row">
         <span class="tower-info-label">Fire Rate:</span>
-        <span class="tower-info-value">${(1000 / tower.stats.fireRate).toFixed(2)}/s</span>
+        <span class="tower-info-value">${(1000 / tower.stats.fireRateMs).toFixed(2)}/s</span>
       </div>
       <div class="tower-info-row">
         <span class="tower-info-label">Uptime:</span>

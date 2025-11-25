@@ -43,7 +43,7 @@ export class TowerShopPanel {
       stats.innerHTML = `
         DMG: ${config.baseStats.damage}<br>
         RNG: ${config.baseStats.range}<br>
-        ROF: ${(1000 / config.baseStats.fireRate).toFixed(1)}/s
+        ROF: ${(1000 / config.baseStats.fireRateMs).toFixed(1)}/s
       `;
 
       card.appendChild(icon);

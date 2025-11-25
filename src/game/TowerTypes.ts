@@ -5,7 +5,7 @@ export type TargetingMode = 'FIRST' | 'LAST' | 'CLOSEST' | 'STRONGEST';
 export interface TowerStats {
   damage: number;
   range: number;
-  fireRate: number;
+  fireRateMs: number;
   projectileSpeed: number;
   splashRadius?: number;
   splashDamage?: number;
@@ -33,24 +33,24 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     baseStats: {
       damage: 25,
       range: 150,
-      fireRate: 1000,
+      fireRateMs: 1000,
       projectileSpeed: 400,
     },
     upgrades: [
       {
         level: 2,
         cost: 60,
-        stats: { damage: 40, range: 175, fireRate: 850, projectileSpeed: 450 },
+        stats: { damage: 40, range: 175, fireRateMs: 850, projectileSpeed: 450 },
       },
       {
         level: 3,
         cost: 100,
-        stats: { damage: 65, range: 200, fireRate: 700, projectileSpeed: 500 },
+        stats: { damage: 65, range: 200, fireRateMs: 700, projectileSpeed: 500 },
       },
       {
         level: 4,
         cost: 150,
-        stats: { damage: 100, range: 225, fireRate: 500, projectileSpeed: 550 },
+        stats: { damage: 100, range: 225, fireRateMs: 500, projectileSpeed: 550 },
       },
     ],
   },
@@ -61,24 +61,24 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     baseStats: {
       damage: 75,
       range: 250,
-      fireRate: 2500,
+      fireRateMs: 2500,
       projectileSpeed: Infinity,
     },
     upgrades: [
       {
         level: 2,
         cost: 80,
-        stats: { damage: 120, range: 280, fireRate: 2200, projectileSpeed: Infinity },
+        stats: { damage: 120, range: 280, fireRateMs: 2200, projectileSpeed: Infinity },
       },
       {
         level: 3,
         cost: 130,
-        stats: { damage: 180, range: 310, fireRate: 1900, projectileSpeed: Infinity },
+        stats: { damage: 180, range: 310, fireRateMs: 1900, projectileSpeed: Infinity },
       },
       {
         level: 4,
         cost: 200,
-        stats: { damage: 280, range: 350, fireRate: 1500, projectileSpeed: Infinity },
+        stats: { damage: 280, range: 350, fireRateMs: 1500, projectileSpeed: Infinity },
       },
     ],
   },
@@ -89,24 +89,24 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     baseStats: {
       damage: 10,
       range: 120,
-      fireRate: 300,
+      fireRateMs: 300,
       projectileSpeed: 500,
     },
     upgrades: [
       {
         level: 2,
         cost: 70,
-        stats: { damage: 15, range: 135, fireRate: 250, projectileSpeed: 550 },
+        stats: { damage: 15, range: 135, fireRateMs: 250, projectileSpeed: 550 },
       },
       {
         level: 3,
         cost: 110,
-        stats: { damage: 22, range: 150, fireRate: 200, projectileSpeed: 600 },
+        stats: { damage: 22, range: 150, fireRateMs: 200, projectileSpeed: 600 },
       },
       {
         level: 4,
         cost: 170,
-        stats: { damage: 35, range: 170, fireRate: 150, projectileSpeed: 650 },
+        stats: { damage: 35, range: 170, fireRateMs: 150, projectileSpeed: 650 },
       },
     ],
   },
@@ -117,7 +117,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     baseStats: {
       damage: 40,
       range: 140,
-      fireRate: 2000,
+      fireRateMs: 2000,
       projectileSpeed: 200,
       splashRadius: 30,
       splashDamage: 20,
@@ -129,7 +129,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         stats: {
           damage: 60,
           range: 160,
-          fireRate: 1800,
+          fireRateMs: 1800,
           projectileSpeed: 220,
           splashRadius: 35,
           splashDamage: 30,
@@ -141,7 +141,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         stats: {
           damage: 90,
           range: 180,
-          fireRate: 1600,
+          fireRateMs: 1600,
           projectileSpeed: 240,
           splashRadius: 40,
           splashDamage: 45,
@@ -153,7 +153,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         stats: {
           damage: 140,
           range: 210,
-          fireRate: 1300,
+          fireRateMs: 1300,
           projectileSpeed: 260,
           splashRadius: 50,
           splashDamage: 70,
