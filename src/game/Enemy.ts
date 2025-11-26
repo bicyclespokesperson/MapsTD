@@ -120,6 +120,7 @@ export class Enemy extends Phaser.GameObjects.Container {
 
   private die() {
     this._isDead = true;
+    this.scene.events.emit('enemy-killed', this.x, this.y, this.config.color, this.config.size);
     this.onKill();
     this.destroy();
   }

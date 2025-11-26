@@ -13,6 +13,7 @@ import { TowerShopPanel } from './ui/TowerShopPanel';
 import { TowerInfoPanel } from './ui/TowerInfoPanel';
 import { TowerType, TOWER_CONFIGS } from './game/TowerTypes';
 import { Tower } from './game/Tower';
+import { DeathEffect } from './game/DeathEffect';
 
 import { GAME_CONFIG } from './config';
 
@@ -29,6 +30,7 @@ class GameScene extends Phaser.Scene {
   private entries: BoundaryEntry[] = [];
   private mapConfig: MapConfiguration | null = null;
   private projectiles: Projectile[] = [];
+  private deathEffects: DeathEffect[] = [];
 
   private placementMode: boolean = false;
   private placementType: TowerType | null = null;
@@ -58,6 +60,10 @@ class GameScene extends Phaser.Scene {
       this.projectiles.push(projectile);
     });
 
+    this.events.on('enemy-killed', (x: number, y: number, color: number, size: number) => {
+      this.deathEffects.push(new DeathEffect(this, x, y, color, size));
+    });
+
     (window as any).gameScene = this;
   }
 
@@ -84,6 +90,12 @@ class GameScene extends Phaser.Scene {
           this.projectiles.splice(i, 1);
         } else {
           projectile.update(adjustedDelta);
+        }
+      }
+
+      for (let i = this.deathEffects.length - 1; i >= 0; i--) {
+        if (!this.deathEffects[i].update(adjustedDelta)) {
+          this.deathEffects.splice(i, 1);
         }
       }
     }
@@ -139,7 +151,7 @@ class GameScene extends Phaser.Scene {
 
       if (points.length < 2) continue;
 
-      this.roadGraphics.lineStyle(3, 0x4444ff, 0.7);
+      this.roadGraphics.lineStyle(GAME_CONFIG.ROADS.WIDTH, GAME_CONFIG.ROADS.COLOR, GAME_CONFIG.ROADS.OPACITY);
       this.roadGraphics.beginPath();
       this.roadGraphics.moveTo(points[0].x, points[0].y);
 
@@ -280,6 +292,8 @@ class GameScene extends Phaser.Scene {
     }
     this.projectiles = [];
 
+    this.deathEffects = [];
+
     this.roadNetwork = null;
     this.entries = [];
     this.mapConfig = null;
@@ -299,6 +313,8 @@ class GameScene extends Phaser.Scene {
       projectile.destroy();
     }
     this.projectiles = [];
+
+    this.deathEffects = [];
 
     this.waveManager.reset();
     this.waveManager.setEntries(this.entries);

@@ -16,6 +16,11 @@ export const GAME_CONFIG = {
     NO_BUILD_COLOR: '#ff0000',
     NO_BUILD_OPACITY: 0.1,
   },
+  ROADS: {
+    COLOR: 0x4444ff,
+    OPACITY: 0,
+    WIDTH: 3,
+  },
   ECONOMY: {
     STARTING_MONEY: 100,
     STARTING_LIVES: 2,
