@@ -31,7 +31,7 @@ export class TowerManager {
     }
 
     const screenPos = this.converter.latLngToPixel(geoPosition);
-    const tower = new Tower(this.scene, screenPos.x, screenPos.y, type, geoPosition);
+    const tower = new Tower(this.scene, screenPos.x, screenPos.y, type, geoPosition, this.converter);
     this.towers.push(tower);
 
     return tower;

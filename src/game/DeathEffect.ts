@@ -75,7 +75,7 @@ export class DeathEffect {
     return true;
   }
 
-  private destroy() {
+  destroy() {
     this.active = false;
     for (const particle of this.particles) {
       particle.sprite.destroy();

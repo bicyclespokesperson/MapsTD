@@ -110,7 +110,7 @@ export class MapConfiguration {
   }
 
   toString(): string {
-    return JSON.stringify(this.toJSON(), null, 2);
+    return JSON.stringify(this.toJSON());
   }
 
   static fromJSON(data: MapConfigData): MapConfiguration {

@@ -224,9 +224,10 @@ class GameScene extends Phaser.Scene {
     const screenPos = this.converter.latLngToPixel(this.previewPosition);
     const color = this.isValidPlacement ? 0x00ff00 : 0xff0000;
     const alpha = this.isValidPlacement ? 0.5 : 0.3;
+    const rangeInPixels = config.baseStats.range * this.converter.pixelsPerMeter();
 
     this.previewGraphics.lineStyle(2, color, 0.6);
-    this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, config.baseStats.range);
+    this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, rangeInPixels);
 
     this.previewGraphics.fillStyle(config.color, alpha);
     this.previewGraphics.fillCircle(screenPos.x, screenPos.y, 10);
@@ -292,6 +293,9 @@ class GameScene extends Phaser.Scene {
     }
     this.projectiles = [];
 
+    for (const effect of this.deathEffects) {
+      effect.destroy();
+    }
     this.deathEffects = [];
 
     this.roadNetwork = null;
@@ -300,6 +304,7 @@ class GameScene extends Phaser.Scene {
 
     this.roadGraphics.clear();
     this.entryGraphics.clear();
+    this.previewGraphics.clear();
   }
 
   restartGame() {
@@ -314,6 +319,9 @@ class GameScene extends Phaser.Scene {
     }
     this.projectiles = [];
 
+    for (const effect of this.deathEffects) {
+      effect.destroy();
+    }
     this.deathEffects = [];
 
     this.waveManager.reset();
@@ -405,13 +413,7 @@ class UIManager {
       if (this.selector.currentMode === 'drawing-bounds') {
         this.selector.cancelSelection();
       } else {
-        this.gameScene.reset();
-        this.selector.clearSelection();
-        this.towerShopPanel.hide();
-        this.towerInfoPanel.hide();
-        this.wavePreview.classList.add('hidden');
-        this.gameControls.classList.add('hidden');
-        this.resetGameControls();
+        this.clearGame();
         this.selector.startBoundsSelection();
       }
     });
@@ -478,6 +480,11 @@ class UIManager {
       this.waveDisplay.textContent = wave.toString();
       this.towerShopPanel.updateMoney(money);
       this.updateWavePreview();
+
+      // Disable Select Area once a wave has started
+      if (wave > 0) {
+        this.selectBoundsBtn.disabled = true;
+      }
     });
 
     window.addEventListener('game-over', (e: any) => {
@@ -493,6 +500,17 @@ class UIManager {
     this.speedBtn.textContent = '1x';
     this.speedBtn.classList.remove('fast');
     this.gameScene.waveManager.setSpeed(1);
+  }
+
+  private clearGame() {
+    this.gameScene.reset();
+    this.selector.clearSelection();
+    this.resetGameControls();
+    this.towerInfoPanel.hide();
+    this.towerShopPanel.hide();
+    this.wavePreview.classList.add('hidden');
+    this.gameControls.classList.add('hidden');
+    this.selectBoundsBtn.disabled = false;
   }
 
   private showGameOver(wave: number, kills: number, moneyEarned: number) {
@@ -511,13 +529,7 @@ class UIManager {
     if (playAgainBtn) {
       playAgainBtn.onclick = () => {
         if (overlay) overlay.classList.add('hidden');
-        this.gameScene.reset();
-        this.selector.clearSelection();
-        this.resetGameControls();
-        this.towerInfoPanel.hide();
-        this.towerShopPanel.hide();
-        this.wavePreview.classList.add('hidden');
-        this.gameControls.classList.add('hidden');
+        this.clearGame();
       };
     }
   }
@@ -670,10 +682,38 @@ function initLeaflet(): L.Map {
     zoomControl: true,
   }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-  }).addTo(map);
+  });
+
+  const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxZoom: 19,
+  });
+
+  osmLayer.addTo(map);
+
+  const mapBtn = document.querySelector('.layer-btn[data-layer="map"]') as HTMLButtonElement;
+  const satBtn = document.querySelector('.layer-btn[data-layer="satellite"]') as HTMLButtonElement;
+
+  mapBtn?.addEventListener('click', () => {
+    if (!mapBtn.classList.contains('active')) {
+      map.removeLayer(satelliteLayer);
+      osmLayer.addTo(map);
+      mapBtn.classList.add('active');
+      satBtn.classList.remove('active');
+    }
+  });
+
+  satBtn?.addEventListener('click', () => {
+    if (!satBtn.classList.contains('active')) {
+      map.removeLayer(osmLayer);
+      satelliteLayer.addTo(map);
+      satBtn.classList.add('active');
+      mapBtn.classList.remove('active');
+    }
+  });
 
   return map;
 }

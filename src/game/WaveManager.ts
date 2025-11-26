@@ -85,6 +85,7 @@ export class WaveManager {
     this.isWaveActive = true;
     this.bossSpawnedThisWave = false;
     console.log(`Starting Wave ${this.currentWave}: ${this.enemiesRemainingToSpawn} enemies`);
+    this.updateStats();
   }
 
   update(time: number, delta: number) {
