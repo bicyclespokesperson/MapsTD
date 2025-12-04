@@ -2,7 +2,7 @@ import { LatLngExpression } from 'leaflet';
 
 export const GAME_CONFIG = {
   MAP: {
-    DEFAULT_CENTER: [37.7749, -122.4194] as LatLngExpression,
+    DEFAULT_CENTER: [37.82206464209891, -122.37301826477052] as LatLngExpression,
     DEFAULT_ZOOM: 15,
     NO_BUILD_RADIUS_METERS: 100,
     MIN_WIDTH_KM: 0.2,
