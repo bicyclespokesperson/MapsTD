@@ -8,15 +8,12 @@ interface Particle {
 }
 
 export class DeathEffect {
-  private scene: Phaser.Scene;
   private particles: Particle[] = [];
   private elapsed: number = 0;
   private duration: number = 400;
   private active: boolean = true;
 
   constructor(scene: Phaser.Scene, x: number, y: number, color: number, size: number) {
-    this.scene = scene;
-
     const particleCount = Math.max(6, Math.floor(size * 1.5));
     const baseSpeed = 80 + size * 8;
 

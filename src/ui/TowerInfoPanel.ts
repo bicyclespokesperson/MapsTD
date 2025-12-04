@@ -1,5 +1,5 @@
 import { Tower } from '../game/Tower';
-import { TOWER_CONFIGS, TARGETING_LABELS } from '../game/TowerTypes';
+import { TOWER_CONFIGS } from '../game/TowerTypes';
 
 export class TowerInfoPanel {
   private panel: HTMLElement;

@@ -32,10 +32,10 @@ export class Tower extends Phaser.GameObjects.Container {
   private converter: CoordinateConverter;
   private currentTarget: Enemy | null = null;
   private timeSinceLastFire: number = 0;
-  private rangeCircle: Phaser.GameObjects.Arc;
-  private body: Phaser.GameObjects.Arc;
-  private barrel: Phaser.GameObjects.Line;
-  private levelText: Phaser.GameObjects.Text;
+  private rangeCircle!: Phaser.GameObjects.Arc;
+  private towerBody!: Phaser.GameObjects.Arc;
+  private barrel!: Phaser.GameObjects.Line;
+  private levelText!: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
@@ -70,9 +70,9 @@ export class Tower extends Phaser.GameObjects.Container {
     this.rangeCircle.setStrokeStyle(2, this.config.color, 0.3);
     this.add(this.rangeCircle);
 
-    this.body = this.scene.add.arc(0, 0, 10, 0, 360, false, this.config.color);
-    this.body.setStrokeStyle(2, 0xffffff);
-    this.add(this.body);
+    this.towerBody = this.scene.add.arc(0, 0, 10, 0, 360, false, this.config.color);
+    this.towerBody.setStrokeStyle(2, 0xffffff);
+    this.add(this.towerBody);
 
     this.barrel = this.scene.add.line(0, 0, 0, 0, 0, -15, 0xffffff);
     this.barrel.setLineWidth(3);
@@ -89,7 +89,7 @@ export class Tower extends Phaser.GameObjects.Container {
 
   public setSelected(selected: boolean): void {
     this.rangeCircle.setVisible(selected);
-    this.body.setStrokeStyle(2, selected ? 0xffff00 : 0xffffff);
+    this.towerBody.setStrokeStyle(2, selected ? 0xffff00 : 0xffffff);
   }
 
   public update(delta: number, enemies: Enemy[]): void {
@@ -192,7 +192,7 @@ export class Tower extends Phaser.GameObjects.Container {
     this.levelText.setText(this.level.toString());
 
     const newSize = 10 + (this.level - 1) * 2;
-    this.body.setRadius(newSize);
+    this.towerBody.setRadius(newSize);
 
     return true;
   }

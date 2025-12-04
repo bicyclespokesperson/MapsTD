@@ -11,6 +11,7 @@ describe('RoadNetwork', () => {
 
   const road: RoadSegment = {
     id: 1,
+    nodeIds: [1, 2],
     points: [
       L.latLng(37.775, -122.415),
       L.latLng(37.775, -122.420) // Horizontal road

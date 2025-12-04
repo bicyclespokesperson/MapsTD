@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import * as L from 'leaflet';
 import { Tower } from './Tower';
 import { Enemy } from './Enemy';
-import { TowerType, TOWER_CONFIGS } from './TowerTypes';
+import { TowerType } from './TowerTypes';
 import { CoordinateConverter } from '../coordinateConverter';
 import { MapConfiguration } from '../mapConfiguration';
 
@@ -51,7 +51,7 @@ export class TowerManager {
 
   public updateAll(delta: number, enemies: Enemy[]): void {
     for (const tower of this.towers) {
-      const screenPos = this.converter.latLngToPixel(tower.geoPosition);
+      const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
       tower.setPosition(screenPos.x, screenPos.y);
       tower.update(delta, enemies);
     }
@@ -64,7 +64,7 @@ export class TowerManager {
 
     const screenPos = this.converter.latLngToPixel(geoPosition);
     for (const tower of this.towers) {
-      const towerScreenPos = this.converter.latLngToPixel(tower.geoPosition);
+      const towerScreenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
       const distance = Phaser.Math.Distance.Between(
         screenPos.x,
         screenPos.y,
@@ -81,7 +81,7 @@ export class TowerManager {
 
   public getTowerAt(screenPosition: { x: number; y: number }): Tower | null {
     for (const tower of this.towers) {
-      const screenPos = this.converter.latLngToPixel(tower.geoPosition);
+      const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
       const distance = Phaser.Math.Distance.Between(
         screenPosition.x,
         screenPosition.y,

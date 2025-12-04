@@ -28,7 +28,6 @@ class GameScene extends Phaser.Scene {
 
   private roadNetwork: RoadNetwork | null = null;
   private entries: BoundaryEntry[] = [];
-  private mapConfig: MapConfiguration | null = null;
   private projectiles: Projectile[] = [];
   private deathEffects: DeathEffect[] = [];
 
@@ -187,7 +186,6 @@ class GameScene extends Phaser.Scene {
   }
 
   setMapConfiguration(config: MapConfiguration) {
-    this.mapConfig = config;
     if (!this.towerManager) {
       this.towerManager = new TowerManager(this, this.converter, config);
       console.log('TowerManager initialized');
@@ -300,7 +298,6 @@ class GameScene extends Phaser.Scene {
 
     this.roadNetwork = null;
     this.entries = [];
-    this.mapConfig = null;
 
     this.roadGraphics.clear();
     this.entryGraphics.clear();

@@ -2,6 +2,8 @@
 
 A tower defense game where you defend real-world locations using actual map data and road networks.
 
+[Play the Game Here!](https://bicyclespokesperson.github.io/MapsTD/)
+
 ## Concept
 
 Select any area in the real world, choose a point to defend (like a building or landmark), and place towers to stop enemies that travel along actual roads and paths. The game combines real-world geography with classic tower defense mechanics.
@@ -83,41 +85,18 @@ Select any area in the real world, choose a point to defend (like a building or 
 - [x] Phaser 3 integration with transparent overlay
 - [x] Coordinate conversion system
 - [x] Proof of concept: game elements track map positions
+- [x] OSM Data Integration
+- [x] Map Selection UI
+- [x] Enemy Pathfinding
+- [x] Tower System with multiple types and upgrades
+- [x] Core Game Loop (Waves, Money, Lives)
 
 ### 🚧 Next Steps
 
-1. **OSM Data Integration**
-   - Implement Overpass API queries
-   - Fetch road network for selected area
-   - Parse road geometry into game-usable format
-
-2. **Map Selection UI**
-   - Rectangle selection tool for map boundary
-   - Point selection for defend location
-   - Validation (endpoint must be inside boundary)
-
-3. **Enemy Pathfinding**
-   - Convert OSM roads to graph structure
-   - Find all boundary entry points
-   - Implement waypoint-based navigation
-   - Limit to ~25 enemies on screen simultaneously
-
-4. **Tower System**
-   - Tower placement UI
-   - Range visualization
-   - Basic tower types (damage, rate of fire)
-   - Collision detection with enemies
-
-5. **Core Game Loop**
-   - Wave spawning system
-   - Lives/health system
-   - Money/resources
-   - Win/lose conditions
-
-6. **Polish & Features**
-   - Tower upgrades
-   - Statistics tracking
-   - Map save/load system
+1. **Polish & Features**
+   - Sound effects
+   - More enemy types
+   - Map save/load system (partially implemented)
    - UI/UX improvements
 
 ## Design Decisions
@@ -134,12 +113,6 @@ Select any area in the real world, choose a point to defend (like a building or 
 - Simple to implement and performant
 - Good enough visual fidelity
 - Avoids complexity of curved path following
-
-### Why Flat Terrain Initially?
-
-- Simpler implementation to start
-- Elevation data adds complexity (line-of-sight, performance)
-- Can be added later as enhancement
 
 ## Development
 
@@ -159,6 +132,15 @@ npm run build
 npm run preview
 ```
 
+### Deployment
+
+The game is deployed to GitHub Pages.
+
+To deploy a new version:
+```bash
+npm run deploy
+```
+
 ## License
 
-TBD
+MIT
