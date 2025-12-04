@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maps Tower Defense</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script type="module" crossorigin src="/MapsTD/assets/index-_KajwJ9d.js"></script>
+    <link rel="stylesheet" crossorigin href="/MapsTD/assets/index-DARx3Zem.css">
+  </head>
+  <body>
+    <div id="app-container">
+      <div id="sidebar">
+        <h1>Maps Tower Defense</h1>
+        <div class="controls">
+          <button id="selectBoundsBtn">Select Area</button>
+          <p class="help-text">1. Drag to select map area</p>
+          
+          <button id="placeDefendBtn" disabled>Place Defend Point</button>
+          <p class="help-text">2. Click a road to defend</p>
+
+          <div id="wave-preview" class="hidden">
+            <p class="wave-preview-label">Next Wave:</p>
+            <div id="wave-preview-content"></div>
+          </div>
+
+          <button id="startWaveBtn" disabled>Start Wave</button>
+          <div id="game-controls" class="hidden">
+            <button id="pauseBtn">Pause</button>
+            <button id="speedBtn">1x</button>
+          </div>
+          <p class="help-text">3. Defend!</p>
+          
+          <hr>
+          
+          <button id="shareBtn" disabled>Share Map</button>
+          <button id="loadConfigBtn">Load Map</button>
+        </div>
+        
+        <div id="stats-panel">
+          <div class="stat-row">Lives: <span id="livesDisplay">10</span></div>
+          <div class="stat-row">Money: <span id="moneyDisplay">100</span></div>
+          <div class="stat-row">Wave: <span id="waveDisplay">0</span></div>
+        </div>
+
+        <div id="tower-info-panel" class="hidden">
+          <h3 id="towerInfoTitle">Tower Info</h3>
+          <div id="towerInfoContent"></div>
+        </div>
+      </div>
+      
+      <div id="main-content">
+        <div id="map-container">
+          <div id="map"></div>
+          <div id="game"></div>
+          <div id="map-layer-toggle">
+            <button class="layer-btn active" data-layer="map">Map</button>
+            <button class="layer-btn" data-layer="satellite">Satellite</button>
+          </div>
+        </div>
+        <div id="tower-shop-panel" class="hidden">
+          <div id="tower-cards"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close">&times;</span>
+        <h2 id="modalTitle">Map Configuration</h2>
+        <div id="modalBody">
+          <textarea id="configInput" placeholder="Paste map configuration JSON here..."></textarea>
+          <div class="modal-actions">
+            <button id="modalConfirm">Load</button>
+            <button id="modalCancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="loading-overlay" class="hidden">
+      <div class="spinner"></div>
+      <div id="loading-text" class="loading-text">Loading Map Data...</div>
+    </div>
+
+    <div id="game-over-overlay" class="hidden">
+      <div class="game-over-content">
+        <h1 class="game-over-title">GAME OVER</h1>
+        <div class="game-over-stats">
+          <div class="game-over-stat">
+            <span class="stat-label">Wave Reached</span>
+            <span id="game-over-wave" class="stat-value">0</span>
+          </div>
+          <div class="game-over-stat">
+            <span class="stat-label">Enemies Killed</span>
+            <span id="game-over-kills" class="stat-value">0</span>
+          </div>
+          <div class="game-over-stat">
+            <span class="stat-label">Money Earned</span>
+            <span id="game-over-money" class="stat-value">$0</span>
+          </div>
+        </div>
+        <button id="play-again-btn" class="play-again-btn">Play Again</button>
+      </div>
+    </div>
+
+  </body>
+</html>
