@@ -17,7 +17,7 @@ export const GAME_CONFIG = {
     NO_BUILD_OPACITY: 0.1,
   },
   ROADS: {
-    COLOR: 0xcccccc,
+    COLOR: 0x888888,
     OPACITY: 0.2,
     WIDTH: 3,
   },
