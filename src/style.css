@@ -146,6 +146,11 @@ body {
   border-color: #646cff;
 }
 
+#speedBtn.slow {
+  background: #3a3f90; /* Darker shade of blue for slow */
+  border-color: #3a3f90;
+}
+
 #pauseBtn.paused {
   background: #ff6600;
   border-color: #ff6600;

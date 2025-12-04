@@ -452,11 +452,16 @@ class UIManager {
     });
 
     this.speedBtn.addEventListener('click', () => {
+      const SPEED_VALUES = [0.5, 1, 2];
       const currentSpeed = this.gameScene.waveManager.getSpeed();
-      const newSpeed = currentSpeed === 1 ? 2 : 1;
+      const currentIndex = SPEED_VALUES.indexOf(currentSpeed);
+      const nextIndex = (currentIndex + 1) % SPEED_VALUES.length;
+      const newSpeed = SPEED_VALUES[nextIndex];
+
       this.gameScene.waveManager.setSpeed(newSpeed);
       this.speedBtn.textContent = `${newSpeed}x`;
-      this.speedBtn.classList.toggle('fast', newSpeed === 2);
+      this.speedBtn.classList.toggle('fast', newSpeed === 2); // 'fast' class for 2x
+      this.speedBtn.classList.toggle('slow', newSpeed === 0.5); // 'slow' class for 0.5x (add this CSS class if needed)
     });
 
     this.modalClose.addEventListener('click', () => this.closeModal());
@@ -494,9 +499,10 @@ class UIManager {
   private resetGameControls() {
     this.pauseBtn.textContent = 'Pause';
     this.pauseBtn.classList.remove('paused');
-    this.speedBtn.textContent = '1x';
+    this.speedBtn.textContent = '0.5x';
     this.speedBtn.classList.remove('fast');
-    this.gameScene.waveManager.setSpeed(1);
+    this.speedBtn.classList.add('slow'); // Assuming 'slow' class will be added for 0.5x
+    this.gameScene.waveManager.setSpeed(0.5);
   }
 
   private clearGame() {
