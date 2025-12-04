@@ -499,10 +499,10 @@ class UIManager {
   private resetGameControls() {
     this.pauseBtn.textContent = 'Pause';
     this.pauseBtn.classList.remove('paused');
-    this.speedBtn.textContent = '0.5x';
+    this.speedBtn.textContent = '1x';
     this.speedBtn.classList.remove('fast');
-    this.speedBtn.classList.add('slow'); // Assuming 'slow' class will be added for 0.5x
-    this.gameScene.waveManager.setSpeed(0.5);
+    this.speedBtn.classList.remove('slow');
+    this.gameScene.waveManager.setSpeed(1);
   }
 
   private clearGame() {
