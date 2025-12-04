@@ -23,6 +23,6 @@ export const GAME_CONFIG = {
   },
   ECONOMY: {
     STARTING_MONEY: 100,
-    STARTING_LIVES: 2,
+    STARTING_LIVES: 10,
   },
 };
