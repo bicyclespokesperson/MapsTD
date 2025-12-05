@@ -2,12 +2,12 @@ import * as L from 'leaflet';
 import { MapConfiguration } from './mapConfiguration';
 import { GAME_CONFIG } from './config';
 
-export type SelectionMode = 'none' | 'drawing-bounds' | 'placing-defend';
+export type SelectionMode = 'none' | 'drawing-bounds' | 'placing-base';
 
 export interface SelectionState {
   mode: SelectionMode;
   bounds: L.LatLngBounds | null;
-  defendPoint: L.LatLng | null;
+  baseLocation: L.LatLng | null;
   config: MapConfiguration | null;
 }
 
@@ -16,31 +16,32 @@ export class MapSelector {
   private state: SelectionState;
 
   private boundsRectangle: L.Rectangle | null = null;
-  private defendMarker: L.Marker | null = null;
+  private baseMarker: L.Marker | null = null;
   private noBuildCircle: L.Circle | null = null;
 
   private startPoint: L.LatLng | null = null;
   private tempRectangle: L.Rectangle | null = null;
   private sizeTooltip: L.Tooltip | null = null;
+  private rangePreviewCircle: L.Circle | null = null;
 
   private onStateChange: (state: SelectionState) => void;
   private onBoundsSelected?: (bounds: L.LatLngBounds) => void;
-  private validateDefendPoint?: (point: L.LatLng) => boolean;
+  private validateBaseLocation?: (point: L.LatLng) => boolean;
 
   constructor(
     map: L.Map, 
     onStateChange: (state: SelectionState) => void,
     onBoundsSelected?: (bounds: L.LatLngBounds) => void,
-    validateDefendPoint?: (point: L.LatLng) => boolean
+    validateBaseLocation?: (point: L.LatLng) => boolean
   ) {
     this.map = map;
     this.onStateChange = onStateChange;
     this.onBoundsSelected = onBoundsSelected;
-    this.validateDefendPoint = validateDefendPoint;
+    this.validateBaseLocation = validateBaseLocation;
     this.state = {
       mode: 'none',
       bounds: null,
-      defendPoint: null,
+      baseLocation: null,
       config: null,
     };
   }
@@ -58,15 +59,15 @@ export class MapSelector {
     this.notifyStateChange();
   }
 
-  startDefendPointSelection(): void {
+  startBaseSelection(): void {
     if (!this.state.bounds) {
-      throw new Error('Must select bounds before placing defend point');
+      throw new Error('Must select bounds before placing base location');
     }
 
-    this.state.mode = 'placing-defend';
-    this.map.getContainer().classList.add('defend-cursor');
+    this.state.mode = 'placing-base';
+    this.map.getContainer().classList.add('base-cursor');
 
-    this.map.once('click', this.onDefendPointClick, this);
+    this.map.once('click', this.onBaseLocationClick, this);
 
     this.notifyStateChange();
   }
@@ -75,10 +76,10 @@ export class MapSelector {
     this.map.off('mousedown', this.onMouseDown, this);
     this.map.off('mousemove', this.onMouseMove, this);
     this.map.off('mouseup', this.onMouseUp, this);
-    this.map.off('click', this.onDefendPointClick, this);
+    this.map.off('click', this.onBaseLocationClick, this);
 
     this.map.getContainer().style.cursor = '';
-    this.map.getContainer().classList.remove('defend-cursor');
+    this.map.getContainer().classList.remove('base-cursor');
     this.map.dragging.enable();
 
     if (this.tempRectangle) {
@@ -89,6 +90,11 @@ export class MapSelector {
     if (this.sizeTooltip) {
       this.sizeTooltip.remove();
       this.sizeTooltip = null;
+    }
+
+    if (this.rangePreviewCircle) {
+      this.rangePreviewCircle.remove();
+      this.rangePreviewCircle = null;
     }
 
     this.startPoint = null;
@@ -104,9 +110,9 @@ export class MapSelector {
       this.boundsRectangle = null;
     }
 
-    if (this.defendMarker) {
-      this.defendMarker.remove();
-      this.defendMarker = null;
+    if (this.baseMarker) {
+      this.baseMarker.remove();
+      this.baseMarker = null;
     }
 
     if (this.noBuildCircle) {
@@ -114,10 +120,15 @@ export class MapSelector {
       this.noBuildCircle = null;
     }
 
+    if (this.rangePreviewCircle) {
+      this.rangePreviewCircle.remove();
+      this.rangePreviewCircle = null;
+    }
+
     this.state = {
       mode: 'none',
       bounds: null,
-      defendPoint: null,
+      baseLocation: null,
       config: null,
     };
 
@@ -128,7 +139,7 @@ export class MapSelector {
     this.clearSelection();
 
     this.state.bounds = config.bounds;
-    this.state.defendPoint = config.defendPoint;
+    this.state.baseLocation = config.baseLocation;
     this.state.config = config;
 
     this.boundsRectangle = L.rectangle(config.bounds, {
@@ -137,7 +148,7 @@ export class MapSelector {
       fillOpacity: 0.1,
     }).addTo(this.map);
 
-    this.defendMarker = L.marker(config.defendPoint, {
+    this.baseMarker = L.marker(config.baseLocation, {
       icon: L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -148,9 +159,9 @@ export class MapSelector {
       }),
     }).addTo(this.map);
 
-    this.defendMarker.bindPopup('<b>Defend This Point!</b>');
+    this.baseMarker.bindPopup('<b>Base Location</b>');
 
-    this.noBuildCircle = L.circle(config.defendPoint, {
+    this.noBuildCircle = L.circle(config.baseLocation, {
       radius: config.getNoBuildRadiusMeters(),
       color: '#ff0000',
       fillColor: '#ff0000',
@@ -215,6 +226,27 @@ export class MapSelector {
       this.sizeTooltip.setLatLng(bounds.getCenter());
       this.sizeTooltip.setContent(`${widthStr} × ${heightStr}`);
     }
+
+    // Update range preview circle
+    const center = bounds.getCenter();
+    if (!this.rangePreviewCircle) {
+      this.rangePreviewCircle = L.circle(center, {
+        radius: GAME_CONFIG.MAP.AVERAGE_TOWER_RANGE,
+        color: '#ffffff',
+        weight: 1,
+        dashArray: '5, 5',
+        fillOpacity: 0.1,
+        interactive: false
+      }).addTo(this.map);
+      
+      this.rangePreviewCircle.bindTooltip('Avg Tower Range', {
+        permanent: true,
+        direction: 'center',
+        className: 'range-tooltip',
+      }).openTooltip();
+    } else {
+      this.rangePreviewCircle.setLatLng(center);
+    }
   };
 
   private onMouseUp = (e: L.LeafletMouseEvent): void => {
@@ -241,6 +273,11 @@ export class MapSelector {
       this.sizeTooltip = null;
     }
 
+    if (this.rangePreviewCircle) {
+      this.rangePreviewCircle.remove();
+      this.rangePreviewCircle = null;
+    }
+
     if (this.boundsRectangle) {
       this.boundsRectangle.remove();
     }
@@ -259,30 +296,30 @@ export class MapSelector {
     }
   };
 
-  private onDefendPointClick = (e: L.LeafletMouseEvent): void => {
+  private onBaseLocationClick = (e: L.LeafletMouseEvent): void => {
     if (!this.state.bounds) return;
 
     if (!this.state.bounds.contains(e.latlng)) {
-      alert('Defend point must be inside the selected bounds!');
-      this.startDefendPointSelection();
+      alert('Base location must be inside the selected bounds!');
+      this.startBaseSelection();
       return;
     }
     
-    if (this.validateDefendPoint && !this.validateDefendPoint(e.latlng)) {
-        alert('Defend point must be on a road!');
-        this.startDefendPointSelection();
+    if (this.validateBaseLocation && !this.validateBaseLocation(e.latlng)) {
+        alert('Base location must be on a road!');
+        this.startBaseSelection();
         return;
     }
 
-    if (this.defendMarker) {
-      this.defendMarker.remove();
+    if (this.baseMarker) {
+      this.baseMarker.remove();
     }
 
     if (this.noBuildCircle) {
       this.noBuildCircle.remove();
     }
 
-    this.defendMarker = L.marker(e.latlng, {
+    this.baseMarker = L.marker(e.latlng, {
       icon: L.icon({
         iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -293,11 +330,11 @@ export class MapSelector {
       }),
     }).addTo(this.map);
 
-    this.defendMarker.bindPopup('<b>Defend This Point!</b>').openPopup();
+    this.baseMarker.bindPopup('<b>Base Location</b>').openPopup();
 
     try {
-      this.state.defendPoint = e.latlng;
-      this.state.config = new MapConfiguration(this.state.bounds, this.state.defendPoint);
+      this.state.baseLocation = e.latlng;
+      this.state.config = new MapConfiguration(this.state.bounds, this.state.baseLocation);
 
       this.noBuildCircle = L.circle(e.latlng, {
         radius: this.state.config.getNoBuildRadiusMeters(),
@@ -310,11 +347,11 @@ export class MapSelector {
 
       this.state.mode = 'none';
       this.map.getContainer().style.cursor = '';
-      this.map.getContainer().classList.remove('defend-cursor');
+      this.map.getContainer().classList.remove('base-cursor');
       this.notifyStateChange();
     } catch (error) {
       alert(`Error: ${(error as Error).message}`);
-      this.startDefendPointSelection();
+      this.startBaseSelection();
     }
   };
 

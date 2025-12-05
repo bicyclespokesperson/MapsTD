@@ -102,7 +102,7 @@ class GameScene extends Phaser.Scene {
 
 
 
-  async loadRoadsFromOSM(bounds: L.LatLngBounds, defendPoint: L.LatLng | null, onProgress?: (message: string) => void) {
+  async loadRoadsFromOSM(bounds: L.LatLngBounds, baseLocation: L.LatLng | null, onProgress?: (message: string) => void) {
     console.log('Loading roads from OSM...');
 
     try {
@@ -113,10 +113,10 @@ class GameScene extends Phaser.Scene {
       if (onProgress) onProgress('Building road network...');
       this.roadNetwork = new RoadNetwork(roads, bounds);
 
-      // Only calculate entries if we have a real defend point
-      if (defendPoint) {
+      // Only calculate entries if we have a real base location
+      if (baseLocation) {
         if (onProgress) onProgress('Finding entry points...');
-        this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
+        this.entries = this.roadNetwork.findBoundaryEntries(baseLocation);
 
         if (onProgress) onProgress('Initializing game...');
         this.waveManager.setEntries(this.entries);
@@ -176,11 +176,11 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  recalculateEntries(defendPoint: L.LatLng) {
+  recalculateEntries(baseLocation: L.LatLng) {
     if (!this.roadNetwork) return;
 
-    console.log('Recalculating entries for new defend point:', defendPoint);
-    this.entries = this.roadNetwork.findBoundaryEntries(defendPoint);
+    console.log('Recalculating entries for new base location:', baseLocation);
+    this.entries = this.roadNetwork.findBoundaryEntries(baseLocation);
     this.waveManager.setEntries(this.entries);
     this.renderEntries();
   }
@@ -332,7 +332,7 @@ class UIManager {
   private leafletMap: L.Map;
 
   private selectBoundsBtn: HTMLButtonElement;
-  private placeDefendBtn: HTMLButtonElement;
+  private placeBaseBtn: HTMLButtonElement;
   private shareBtn: HTMLButtonElement;
   private loadConfigBtn: HTMLButtonElement;
   private startWaveBtn: HTMLButtonElement;
@@ -364,7 +364,7 @@ class UIManager {
     this.leafletMap = leafletMap;
 
     this.selectBoundsBtn = document.getElementById('selectBoundsBtn') as HTMLButtonElement;
-    this.placeDefendBtn = document.getElementById('placeDefendBtn') as HTMLButtonElement;
+    this.placeBaseBtn = document.getElementById('placeBaseBtn') as HTMLButtonElement;
     this.shareBtn = document.getElementById('shareBtn') as HTMLButtonElement;
     this.loadConfigBtn = document.getElementById('loadConfigBtn') as HTMLButtonElement;
     this.startWaveBtn = document.getElementById('startWaveBtn') as HTMLButtonElement;
@@ -423,11 +423,11 @@ class UIManager {
       }
     });
 
-    this.placeDefendBtn.addEventListener('click', () => {
-      if (this.selector.currentMode === 'placing-defend') {
+    this.placeBaseBtn.addEventListener('click', () => {
+      if (this.selector.currentMode === 'placing-base') {
         this.selector.cancelSelection();
       } else {
-        this.selector.startDefendPointSelection();
+        this.selector.startBaseSelection();
       }
     });
 
@@ -621,16 +621,16 @@ class UIManager {
   onStateChange(state: SelectionState) {
     this.currentState = state;
 
-    // Enable place defend button only if we have bounds but no config yet
-    // Once defend point is placed (config exists), lock the button
-    this.placeDefendBtn.disabled = !state.bounds || state.config !== null;
+    // Enable place base button only if we have bounds but no config yet
+    // Once base location is placed (config exists), lock the button
+    this.placeBaseBtn.disabled = !state.bounds || state.config !== null;
 
     // Enable share/start only if we have a full config
     this.shareBtn.disabled = !state.config;
     this.startWaveBtn.disabled = !state.config;
 
-    if (state.defendPoint) {
-      this.gameScene.recalculateEntries(state.defendPoint);
+    if (state.baseLocation) {
+      this.gameScene.recalculateEntries(state.baseLocation);
     }
 
     if (state.config) {
@@ -767,7 +767,7 @@ phaserGame.events.once('ready', () => {
       if (loadingOverlay) loadingOverlay.classList.remove('hidden');
 
       try {
-        // Pass null for defendPoint - we'll calculate entries when user places defend point
+        // Pass null for baseLocation - we'll calculate entries when user places base location
         await gameScene.loadRoadsFromOSM(bounds, null, (message) => {
           if (loadingText) loadingText.textContent = message;
         });
@@ -776,7 +776,7 @@ phaserGame.events.once('ready', () => {
         if (loadingText) loadingText.textContent = 'Loading Map Data...';
       }
     },
-    // validateDefendPoint: Check if point is on road
+    // validateBaseLocation: Check if point is on road
     (point) => {
       return gameScene.isPointOnRoad(point);
     }
@@ -785,7 +785,7 @@ phaserGame.events.once('ready', () => {
   const uiManager = new UIManager(mapSelector, gameScene, leafletMap);
 
   console.log('Maps Tower Defense initialized');
-  console.log('Select an area, place defend point, then load roads to begin!');
+  console.log('Select an area, place base location, then load roads to begin!');
 });
 
 window.addEventListener('resize', () => {

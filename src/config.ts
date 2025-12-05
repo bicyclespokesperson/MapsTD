@@ -1,4 +1,9 @@
 import { LatLngExpression } from 'leaflet';
+import { TOWER_CONFIGS } from './game/TowerTypes';
+
+// Calculate average range dynamically
+const towerRanges = Object.values(TOWER_CONFIGS).map(config => config.baseStats.range);
+const averageRange = towerRanges.reduce((a, b) => a + b, 0) / towerRanges.length;
 
 export const GAME_CONFIG = {
   MAP: {
@@ -9,6 +14,7 @@ export const GAME_CONFIG = {
     MAX_WIDTH_KM: 8,
     MIN_HEIGHT_KM: 0.2,
     MAX_HEIGHT_KM: 8,
+    AVERAGE_TOWER_RANGE: averageRange,
   },
   SELECTION: {
     BOUNDS_COLOR: '#3388ff',

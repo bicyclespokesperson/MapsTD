@@ -10,7 +10,7 @@ export interface MapConfigData {
     east: number;
     west: number;
   };
-  defendPoint: {
+  baseLocation: {
     lat: number;
     lng: number;
   };
@@ -24,15 +24,15 @@ export class MapConfiguration {
   private static readonly VERSION = '1.0.0';
 
   bounds: L.LatLngBounds;
-  defendPoint: L.LatLng;
+  baseLocation: L.LatLng;
   metadata: {
     createdAt: string;
     name?: string;
   };
 
-  constructor(bounds: L.LatLngBounds, defendPoint: L.LatLng, name?: string) {
+  constructor(bounds: L.LatLngBounds, baseLocation: L.LatLng, name?: string) {
     this.bounds = bounds;
-    this.defendPoint = defendPoint;
+    this.baseLocation = baseLocation;
     this.metadata = {
       createdAt: new Date().toISOString(),
       name,
@@ -42,8 +42,8 @@ export class MapConfiguration {
   }
 
   private validate(): void {
-    if (!this.bounds.contains(this.defendPoint)) {
-      throw new Error('Defend point must be inside the map bounds');
+    if (!this.bounds.contains(this.baseLocation)) {
+      throw new Error('Base location must be inside the map bounds');
     }
 
     const boundsSizeKm = this.getBoundsSizeKm();
@@ -84,8 +84,8 @@ export class MapConfiguration {
       return false;
     }
 
-    const distanceToDefend = position.distanceTo(this.defendPoint);
-    if (distanceToDefend < GAME_CONFIG.MAP.NO_BUILD_RADIUS_METERS) {
+    const distanceToBase = position.distanceTo(this.baseLocation);
+    if (distanceToBase < GAME_CONFIG.MAP.NO_BUILD_RADIUS_METERS) {
       return false;
     }
 
@@ -101,9 +101,9 @@ export class MapConfiguration {
         east: this.bounds.getEast(),
         west: this.bounds.getWest(),
       },
-      defendPoint: {
-        lat: this.defendPoint.lat,
-        lng: this.defendPoint.lng,
+      baseLocation: {
+        lat: this.baseLocation.lat,
+        lng: this.baseLocation.lng,
       },
       metadata: this.metadata,
     };
@@ -119,9 +119,9 @@ export class MapConfiguration {
       L.latLng(data.bounds.north, data.bounds.east)
     );
 
-    const defendPoint = L.latLng(data.defendPoint.lat, data.defendPoint.lng);
+    const baseLocation = L.latLng(data.baseLocation.lat, data.baseLocation.lng);
 
-    const config = new MapConfiguration(bounds, defendPoint, data.metadata?.name);
+    const config = new MapConfiguration(bounds, baseLocation, data.metadata?.name);
     config.metadata.createdAt = data.metadata?.createdAt || config.metadata.createdAt;
 
     return config;
