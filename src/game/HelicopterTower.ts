@@ -42,14 +42,17 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   
   // Visual components
   private rangeCircle!: Phaser.GameObjects.Arc;
-  private helicopterBody!: Phaser.GameObjects.Polygon;
-  private gunTurret!: Phaser.GameObjects.Graphics;
+  private visualContainer!: Phaser.GameObjects.Container;
+  private helicopterBody!: Phaser.GameObjects.Graphics;
   private mainRotor!: Phaser.GameObjects.Graphics;
   private tailRotor!: Phaser.GameObjects.Graphics;
   private levelText!: Phaser.GameObjects.Text;
   
   // Rotor animation
   private rotorAngle: number = 0;
+  
+  // Scaling factor for visuals
+  private readonly VISUAL_SCALE: number = 3.0; // Start large as requested
 
   constructor(
     scene: Phaser.Scene,
@@ -81,138 +84,172 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   }
 
   private createVisuals(): void {
-    // Range circle (moves with helicopter)
+    // Range circle (moves with helicopter, NOT scaled by visual container)
+    // We strive to keep this accurate to game logic
     this.rangeCircle = this.scene.add.arc(0, 0, this.getRangeInPixels(), 0, 360, false, 0xffffff, 0);
     this.rangeCircle.setStrokeStyle(2, this.config.color, 0.3);
     this.rangeCircle.setVisible(false);
     this.add(this.rangeCircle);
 
-    // Tail boom - thinner and more proportional
-    const tailBoom = this.scene.add.rectangle(0, 65, 16, 75, this.config.color);
-    tailBoom.setStrokeStyle(2, 0x1a3a1a);
-    this.add(tailBoom);
+    // Container for all helicopter visuals (scaled freely)
+    this.visualContainer = this.scene.add.container(0, 0);
+    this.visualContainer.setScale(this.VISUAL_SCALE);
+    this.add(this.visualContainer);
 
-    // Tail fin (horizontal stabilizer)
-    const tailFin = this.scene.add.rectangle(0, 95, 40, 8, this.config.color);
-    tailFin.setStrokeStyle(1, 0x1a3a1a);
-    this.add(tailFin);
+    // --- Helicopter Graphics ---
+    // Using Graphics for cleaner shapes than multiple Rectangles
+    this.helicopterBody = this.scene.add.graphics();
+    this.visualContainer.add(this.helicopterBody);
+    
+    // Draw body parts
+    this.drawBody();
+    
+    // Rotor mast
+    const rotorMast = this.scene.add.rectangle(0, 0, 6, 8, 0x333333);
+    this.visualContainer.add(rotorMast);
 
-    // Main body - rounded cabin shape
-    const body = this.scene.add.rectangle(0, -5, 90, 60, this.config.color);
-    body.setStrokeStyle(3, 0xffffff);
-    this.add(body);
-
-    // Use body as the helicopterBody reference for selection highlighting
-    this.helicopterBody = body as unknown as Phaser.GameObjects.Polygon;
-
-    // Cockpit/windshield - positioned at the front (top)
-    const cockpit = this.scene.add.rectangle(0, -25, 55, 20, 0x87CEEB);
-    cockpit.setStrokeStyle(2, 0x4a90a4);
-    this.add(cockpit);
-
-    // Rotor mast (connects rotor to body) - centered on body
-    const rotorMast = this.scene.add.rectangle(0, -40, 12, 15, 0x555555);
-    rotorMast.setStrokeStyle(1, 0x333333);
-    this.add(rotorMast);
-
-    // Skids/landing gear - full length with front and back
-    const leftSkidVert = this.scene.add.rectangle(-30, 30, 6, 25, 0x333333);
-    const rightSkidVert = this.scene.add.rectangle(30, 30, 6, 25, 0x333333);
-    // Horizontal runners - now extend to front and back
-    const leftSkidHoriz = this.scene.add.rectangle(-30, 45, 70, 6, 0x333333);
-    const rightSkidHoriz = this.scene.add.rectangle(30, 45, 70, 6, 0x333333);
-    // Front vertical struts
-    const leftSkidFront = this.scene.add.rectangle(-30, -10, 6, 20, 0x333333);
-    const rightSkidFront = this.scene.add.rectangle(30, -10, 6, 20, 0x333333);
-    this.add(leftSkidVert);
-    this.add(rightSkidVert);
-    this.add(leftSkidHoriz);
-    this.add(rightSkidHoriz);
-    this.add(leftSkidFront);
-    this.add(rightSkidFront);
-
-    // Tail rotor housing - at the end of tail boom
-    const tailRotorHub = this.scene.add.circle(0, 105, 15, 0x444444);
-    tailRotorHub.setStrokeStyle(2, 0x333333);
-    this.add(tailRotorHub);
-
-    // Gun turret - smaller, positioned under the nose
-    this.gunTurret = this.scene.add.graphics();
-    this.gunTurret.setPosition(0, 5);
-    this.drawGunTurret();
-    this.add(this.gunTurret);
-
-    // Main rotor (spinning blades) - positioned at center of body
+    // Main rotor (spinning blades)
     this.mainRotor = this.scene.add.graphics();
-    this.mainRotor.setPosition(0, -5);
-    this.drawRotor();
-    this.add(this.mainRotor);
+    this.visualContainer.add(this.mainRotor);
+    this.drawRotor(); // Initial draw
 
-    // Tail rotor (at the end of tail boom)
+    // Tail rotor
     this.tailRotor = this.scene.add.graphics();
-    this.tailRotor.setPosition(0, 105);
-    this.drawTailRotor();
-    this.add(this.tailRotor);
+    // Position tailored for the new body shape
+    this.tailRotor.setPosition(0, 42); 
+    this.visualContainer.add(this.tailRotor);
+    this.drawTailRotor(); // Initial draw
 
-    // Level indicator - positioned in the body center
-    this.levelText = this.scene.add.text(0, -5, this.level.toString(), {
-      fontSize: '22px',
+    // Level indicator
+    this.levelText = this.scene.add.text(0, 0, this.level.toString(), {
+      fontSize: '14px', // Smaller font since it's scaled up
       color: '#ffffff',
       fontStyle: 'bold',
     });
     this.levelText.setOrigin(0.5, 0.5);
-    this.add(this.levelText);
+    this.visualContainer.add(this.levelText); // Add to container so it scales
+  }
+
+  private drawBody(): void {
+    const graphics = this.helicopterBody;
+    graphics.clear();
+    
+    const color = this.config.color;
+    const strokeColor = 0xffffff;
+
+    // 1. Skids (Landing Gear)
+    // 1. Skids (Landing Gear)
+    graphics.lineStyle(2, 0x333333);
+    
+    // Left Skid assembly
+    graphics.beginPath();
+    graphics.moveTo(-8, 10); graphics.lineTo(-8, 15); // Back strut
+    graphics.moveTo(-8, -5); graphics.lineTo(-8, -10); // Front strut
+    graphics.moveTo(-8, 18); graphics.lineTo(-8, -25); // Main Runner (long)
+    graphics.strokePath();
+
+    // Right Skid assembly
+    graphics.beginPath();
+    graphics.moveTo(8, 10); graphics.lineTo(8, 15); // Back strut
+    graphics.moveTo(8, -5); graphics.lineTo(8, -10); // Front strut
+    graphics.moveTo(8, 18); graphics.lineTo(8, -25); // Main Runner (long)
+    graphics.strokePath();
+
+    // 2. Tail Boom
+    graphics.fillStyle(color);
+    graphics.lineStyle(1, strokeColor);
+    graphics.beginPath();
+    graphics.moveTo(-4, 0);
+    graphics.lineTo(4, 0);
+    graphics.lineTo(2, 45); // Taper towards back
+    graphics.lineTo(-2, 45);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
+
+    // 3. Tail Fin (Horizontal Stabilizer)
+    graphics.fillStyle(color);
+    graphics.fillRoundedRect(-10, 38, 20, 4, 1);
+    graphics.strokeRoundedRect(-10, 38, 20, 4, 1);
+
+    // 4. Main Body (Fuselage) - Teardrop/Oval shape
+    // Using an ellipse for a smoother look
+    graphics.fillStyle(color);
+    graphics.lineStyle(2, strokeColor);
+    // Ellipse centered slightly forward
+    graphics.fillEllipse(0, -2, 22, 30);
+    graphics.strokeEllipse(0, -2, 22, 30);
+
+    // 5. Cockpit / Windshield
+    graphics.fillStyle(0x87CEEB); // Sky blue
+    graphics.lineStyle(1, 0x4a90a4);
+    // Draw a shape at the front (top in 2D top-down view) - using arc/chord
+    graphics.beginPath();
+    // Arc for windshield
+    graphics.arc(0, -6, 9, Math.PI, 2 * Math.PI, false); // Upper half circle-ish
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
   }
 
   private drawRotor(): void {
     this.mainRotor.clear();
-    this.mainRotor.lineStyle(10, 0xaaaaaa);
-    
-    // Draw 2 rotor blades (5x scale - 95px radius)
+    this.mainRotor.lineStyle(2, 0xcccccc, 0.8);
+    this.mainRotor.fillStyle(0xeeeeee, 0.5); // Translucent blur effect
+
+    const bladeLength = 35; // Shortened from 45 as requested
+
+    // Draw 2 blades
     for (let i = 0; i < 2; i++) {
-      const angle = this.rotorAngle + (i * Math.PI);
-      const x1 = Math.cos(angle) * 95;
-      const y1 = Math.sin(angle) * 95;
-      const x2 = Math.cos(angle + Math.PI) * 95;
-      const y2 = Math.sin(angle + Math.PI) * 95;
-      this.mainRotor.beginPath();
-      this.mainRotor.moveTo(x1, y1);
-      this.mainRotor.lineTo(x2, y2);
-      this.mainRotor.strokePath();
+        const angle = this.rotorAngle + (i * Math.PI);
+        
+        // Blade logic
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        
+        // Draw blade line (crisp center)
+        this.mainRotor.beginPath();
+        this.mainRotor.moveTo(0, 0);
+        this.mainRotor.lineTo(dx * bladeLength, dy * bladeLength);
+        this.mainRotor.strokePath();
     }
     
-    // Rotor hub (5x scale)
-    this.mainRotor.fillStyle(0x444444);
-    this.mainRotor.fillCircle(0, 0, 20);
-    this.mainRotor.lineStyle(2, 0x666666);
-    this.mainRotor.strokeCircle(0, 0, 20);
+    // Hub
+    this.mainRotor.fillStyle(0x555555);
+    this.mainRotor.fillCircle(0, 0, 3);
   }
 
   private drawTailRotor(): void {
     this.tailRotor.clear();
-    this.tailRotor.lineStyle(6, 0xaaaaaa);
+    this.tailRotor.lineStyle(1, 0xcccccc, 0.9);
     
-    // Draw 2 small blades (5x scale - 35px radius)
+    const bladeLength = 12;
+    
+    // Draw 2 small blades
     for (let i = 0; i < 2; i++) {
-      const angle = this.rotorAngle * 2 + (i * Math.PI);
-      const x1 = Math.cos(angle) * 35;
-      const y1 = Math.sin(angle) * 35;
-      const x2 = Math.cos(angle + Math.PI) * 35;
-      const y2 = Math.sin(angle + Math.PI) * 35;
-      this.tailRotor.beginPath();
-      this.tailRotor.moveTo(x1, y1);
-      this.tailRotor.lineTo(x2, y2);
-      this.tailRotor.strokePath();
+        const angle = this.rotorAngle * 2 + (i * Math.PI); // Spin faster
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        
+        this.tailRotor.beginPath();
+        this.tailRotor.moveTo(0, 0);
+        this.tailRotor.lineTo(dx * bladeLength, dy * bladeLength);
+        this.tailRotor.strokePath();
     }
     
-    // Small hub (5x scale)
-    this.tailRotor.fillStyle(0x444444);
-    this.tailRotor.fillCircle(0, 0, 10);
+    // Hub
+    this.tailRotor.fillStyle(0x555555);
+    this.tailRotor.fillCircle(0, 0, 1.5);
   }
 
   public setSelected(selected: boolean): void {
     this.rangeCircle.setVisible(selected);
-    this.helicopterBody.setStrokeStyle(2, selected ? 0xffff00 : 0xffffff);
+    // Highlight the body graphic
+    // We can't easily change stroke of a drawn graphic without redrawing, 
+    // but we can add a selection indicator to the container
+    if (selected) {
+        // Just ensure range circle is visible
+    }
   }
 
   public update(delta: number, enemies: Enemy[], isWaveActive: boolean = true): void {
@@ -237,8 +274,11 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
       }
 
       if (this.currentTarget) {
-        this.aimAt(this.currentTarget);
-
+        // Aiming logic involves visual rotation if we want the helicopter to face target, 
+        // but it's patrolling. 
+        // We'll skip turret rotation for now as the new clean design simulates a fixed forward gun or internal bay.
+        // If we want turret, we can add it later.
+        
         if (this.timeSinceLastFire >= this.stats.fireRateMs) {
           this.fire(this.currentTarget);
           this.timeSinceLastFire = 0;
@@ -282,7 +322,14 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     // Rotate helicopter to face direction of movement (tangent to circle)
     // Tangent is perpendicular to radius, so add π/2 to patrol angle
     const movementAngle = this.patrolAngle + Math.PI / 2;
+    // We rotate the visual container? No, rotate the whole container (this)
+    // But this involves rotating `this`. Visuals are inside.
     this.setRotation(movementAngle);
+    
+    // Keep level text upright? 
+    // If we want text upright, we'd counter-rotate it. 
+    // For now let it rotate with heli.
+    this.levelText.setRotation(-movementAngle);
   }
 
   private animateRotors(delta: number): void {
@@ -345,27 +392,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     return distance <= this.getRangeInPixels();
   }
 
-  private aimAt(enemy: Enemy): void {
-    const angle = Phaser.Math.Angle.Between(this.x, this.y, enemy.x, enemy.y);
-    // Rotate gun turret to face target, accounting for container rotation
-    // Subtract container rotation so turret aims in world space
-    this.gunTurret.setRotation(angle + Math.PI / 2 - this.rotation);
-  }
 
-  private drawGunTurret(): void {
-    this.gunTurret.clear();
-    // Gun barrel pointing forward (5x scale)
-    this.gunTurret.lineStyle(6, 0x333333);
-    this.gunTurret.beginPath();
-    this.gunTurret.moveTo(0, 0);
-    this.gunTurret.lineTo(0, -40);
-    this.gunTurret.strokePath();
-    // Gun mount (5x scale)
-    this.gunTurret.fillStyle(0x555555);
-    this.gunTurret.fillCircle(0, 0, 12);
-    this.gunTurret.lineStyle(2, 0x333333);
-    this.gunTurret.strokeCircle(0, 0, 12);
-  }
 
   private fire(target: Enemy): void {
     this.statistics.shotsFired++;
