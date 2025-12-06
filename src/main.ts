@@ -80,7 +80,8 @@ class GameScene extends Phaser.Scene {
       const adjustedDelta = delta * this.waveManager.getSpeed();
 
       if (this.towerManager) {
-        this.towerManager.updateAll(adjustedDelta, this.waveManager.getActiveEnemies());
+        const isWaveActive = this.waveManager.getActiveEnemies().length > 0;
+        this.towerManager.updateAll(adjustedDelta, this.waveManager.getActiveEnemies(), isWaveActive);
       }
 
       for (let i = this.projectiles.length - 1; i >= 0; i--) {

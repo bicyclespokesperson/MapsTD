@@ -59,14 +59,16 @@ export class TowerManager {
     }
   }
 
-  public updateAll(delta: number, enemies: Enemy[]): void {
+  public updateAll(delta: number, enemies: Enemy[], isWaveActive: boolean = true): void {
     for (const tower of this.towers) {
       // Helicopters manage their own position during patrol
-      if (!(tower instanceof HelicopterTower)) {
+      if (tower instanceof HelicopterTower) {
+        tower.update(delta, enemies, isWaveActive);
+      } else {
         const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
         tower.setPosition(screenPos.x, screenPos.y);
+        tower.update(delta, enemies);
       }
-      tower.update(delta, enemies);
     }
   }
 

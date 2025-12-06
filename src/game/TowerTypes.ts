@@ -170,7 +170,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Helicopter',
     baseCost: 200,
     color: 0x2d5a27,
-    patrolRadius: 150,
+    patrolRadius: 210,
     patrolSpeed: 50,
     baseStats: {
       damage: 50,

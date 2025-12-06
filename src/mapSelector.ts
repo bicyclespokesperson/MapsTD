@@ -196,6 +196,7 @@ export class MapSelector {
       color: '#3388ff',
       weight: 2,
       fillOpacity: 0.1,
+      interactive: false,
     }).addTo(this.map);
 
     this.sizeTooltip = L.tooltip({
@@ -283,7 +284,7 @@ export class MapSelector {
     }
 
     this.boundsRectangle = this.tempRectangle;
-    this.boundsRectangle.setStyle({ weight: 3, color: '#3388ff' });
+    this.boundsRectangle.setStyle({ weight: 3, color: '#3388ff', interactive: false });
 
     this.tempRectangle = null;
     this.startPoint = null;
