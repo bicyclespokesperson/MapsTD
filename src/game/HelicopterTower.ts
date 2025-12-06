@@ -52,7 +52,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   private rotorAngle: number = 0;
   
   // Scaling factor for visuals
-  private readonly VISUAL_SCALE: number = 3.0; // Start large as requested
+  private readonly VISUAL_SCALE: number = 0.7; // Scaled down for game view
 
   constructor(
     scene: Phaser.Scene,
