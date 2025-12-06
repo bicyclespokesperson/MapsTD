@@ -1,10 +1,14 @@
 import Phaser from 'phaser';
 import * as L from 'leaflet';
 import { Tower } from './Tower';
+import { HelicopterTower } from './HelicopterTower';
 import { Enemy } from './Enemy';
 import { TowerType } from './TowerTypes';
 import { CoordinateConverter } from '../coordinateConverter';
 import { MapConfiguration } from '../mapConfiguration';
+
+// Union type for all tower types
+export type AnyTower = Tower | HelicopterTower;
 
 const MIN_TOWER_SPACING_PIXELS = 30;
 
@@ -12,8 +16,8 @@ export class TowerManager {
   private scene: Phaser.Scene;
   private converter: CoordinateConverter;
   private mapConfig: MapConfiguration;
-  private towers: Tower[] = [];
-  private selectedTower: Tower | null = null;
+  private towers: AnyTower[] = [];
+  private selectedTower: AnyTower | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -25,19 +29,25 @@ export class TowerManager {
     this.mapConfig = mapConfig;
   }
 
-  public addTower(type: TowerType, geoPosition: L.LatLng): Tower | null {
-    if (!this.isValidPlacement(geoPosition)) {
+  public addTower(type: TowerType, geoPosition: L.LatLng): AnyTower | null {
+    if (!this.isValidPlacement(geoPosition, type)) {
       return null;
     }
 
     const screenPos = this.converter.latLngToPixel(geoPosition);
-    const tower = new Tower(this.scene, screenPos.x, screenPos.y, type, geoPosition, this.converter);
+    let tower: AnyTower;
+    
+    if (type === 'HELICOPTER') {
+      tower = new HelicopterTower(this.scene, screenPos.x, screenPos.y, geoPosition, this.converter);
+    } else {
+      tower = new Tower(this.scene, screenPos.x, screenPos.y, type, geoPosition, this.converter);
+    }
+    
     this.towers.push(tower);
-
     return tower;
   }
 
-  public removeTower(tower: Tower): void {
+  public removeTower(tower: AnyTower): void {
     const index = this.towers.indexOf(tower);
     if (index !== -1) {
       this.towers.splice(index, 1);
@@ -51,15 +61,25 @@ export class TowerManager {
 
   public updateAll(delta: number, enemies: Enemy[]): void {
     for (const tower of this.towers) {
-      const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
-      tower.setPosition(screenPos.x, screenPos.y);
+      // Helicopters manage their own position during patrol
+      if (!(tower instanceof HelicopterTower)) {
+        const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
+        tower.setPosition(screenPos.x, screenPos.y);
+      }
       tower.update(delta, enemies);
     }
   }
 
-  public isValidPlacement(geoPosition: L.LatLng): boolean {
-    if (!this.mapConfig.isValidTowerPosition(geoPosition)) {
-      return false;
+  public isValidPlacement(geoPosition: L.LatLng, towerType?: TowerType): boolean {
+    // Helicopters can be placed anywhere within bounds (they fly!)
+    if (towerType === 'HELICOPTER') {
+      if (!this.mapConfig.bounds.contains(geoPosition)) {
+        return false;
+      }
+    } else {
+      if (!this.mapConfig.isValidTowerPosition(geoPosition)) {
+        return false;
+      }
     }
 
     const screenPos = this.converter.latLngToPixel(geoPosition);
@@ -79,14 +99,26 @@ export class TowerManager {
     return true;
   }
 
-  public getTowerAt(screenPosition: { x: number; y: number }): Tower | null {
+  public getTowerAt(screenPosition: { x: number; y: number }): AnyTower | null {
     for (const tower of this.towers) {
-      const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
+      // For helicopters, check against current screen position
+      let towerScreenX: number;
+      let towerScreenY: number;
+      
+      if (tower instanceof HelicopterTower) {
+        towerScreenX = tower.x;
+        towerScreenY = tower.y;
+      } else {
+        const screenPos = this.converter.latLngToPixel(L.latLng(tower.geoPosition.lat, tower.geoPosition.lng));
+        towerScreenX = screenPos.x;
+        towerScreenY = screenPos.y;
+      }
+      
       const distance = Phaser.Math.Distance.Between(
         screenPosition.x,
         screenPosition.y,
-        screenPos.x,
-        screenPos.y
+        towerScreenX,
+        towerScreenY
       );
       if (distance < 15) {
         return tower;
@@ -95,7 +127,7 @@ export class TowerManager {
     return null;
   }
 
-  public selectTower(tower: Tower | null): void {
+  public selectTower(tower: AnyTower | null): void {
     if (this.selectedTower) {
       this.selectedTower.setSelected(false);
     }
@@ -110,11 +142,11 @@ export class TowerManager {
     }
   }
 
-  public getSelectedTower(): Tower | null {
+  public getSelectedTower(): AnyTower | null {
     return this.selectedTower;
   }
 
-  public getAllTowers(): Tower[] {
+  public getAllTowers(): AnyTower[] {
     return this.towers;
   }
 

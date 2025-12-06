@@ -1,10 +1,22 @@
 import Phaser from 'phaser';
 import { Enemy } from './Enemy';
 import { Tower } from './Tower';
+import { HelicopterTower } from './HelicopterTower';
+
+// Common interface for anything that can fire projectiles
+export interface ProjectileSource {
+  x: number;
+  y: number;
+  recordHit(damage: number): void;
+  recordKill(): void;
+}
+
+// Union type for all tower types that can fire
+export type AnyTower = Tower | HelicopterTower;
 
 export class Projectile extends Phaser.GameObjects.Graphics {
   private target: Enemy;
-  private source: Tower;
+  private source: ProjectileSource;
   private damage: number;
   private speed: number;
   private splashRadius: number | undefined;
@@ -15,7 +27,7 @@ export class Projectile extends Phaser.GameObjects.Graphics {
 
   constructor(
     scene: Phaser.Scene,
-    source: Tower,
+    source: ProjectileSource,
     target: Enemy,
     damage: number,
     speed: number,

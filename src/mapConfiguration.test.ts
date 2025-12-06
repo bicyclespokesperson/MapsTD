@@ -7,21 +7,21 @@ describe('MapConfiguration', () => {
     L.latLng(37.77, -122.42),
     L.latLng(37.78, -122.41)
   );
-  const validDefendPoint = L.latLng(37.775, -122.415);
+  const validBaseLocation = L.latLng(37.775, -122.415);
 
   describe('constructor', () => {
     it('should create a valid configuration', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       expect(config.bounds).toBe(validBounds);
-      expect(config.defendPoint).toBe(validDefendPoint);
+      expect(config.baseLocation).toBe(validBaseLocation);
       expect(config.metadata.createdAt).toBeDefined();
     });
 
-    it('should throw error if defend point is outside bounds', () => {
+    it('should throw error if base location is outside bounds', () => {
       const outsidePoint = L.latLng(37.79, -122.40);
       expect(() => {
         new MapConfiguration(validBounds, outsidePoint);
-      }).toThrow('Defend point must be inside the map bounds');
+      }).toThrow('Base location must be inside the map bounds');
     });
 
     it('should throw error if map is too small', () => {
@@ -36,26 +36,26 @@ describe('MapConfiguration', () => {
     });
 
     it('should accept optional name', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint, 'Test Map');
+      const config = new MapConfiguration(validBounds, validBaseLocation, 'Test Map');
       expect(config.metadata.name).toBe('Test Map');
     });
   });
 
   describe('isValidTowerPosition', () => {
     it('should reject positions outside bounds', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       const outsidePoint = L.latLng(37.79, -122.40);
       expect(config.isValidTowerPosition(outsidePoint)).toBe(false);
     });
 
-    it('should reject positions too close to defend point', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+    it('should reject positions too close to base location', () => {
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       const tooClose = L.latLng(37.7751, -122.415);
       expect(config.isValidTowerPosition(tooClose)).toBe(false);
     });
 
     it('should accept valid positions', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       const validPosition = L.latLng(37.776, -122.418);
       expect(config.isValidTowerPosition(validPosition)).toBe(true);
     });
@@ -63,7 +63,7 @@ describe('MapConfiguration', () => {
 
   describe('serialization', () => {
     it('should serialize to JSON', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint, 'Test Map');
+      const config = new MapConfiguration(validBounds, validBaseLocation, 'Test Map');
       const json = config.toJSON();
 
       expect(json.version).toBe('1.0.0');
@@ -71,23 +71,23 @@ describe('MapConfiguration', () => {
       expect(json.bounds.south).toBeCloseTo(37.77);
       expect(json.bounds.east).toBeCloseTo(-122.41);
       expect(json.bounds.west).toBeCloseTo(-122.42);
-      expect(json.defendPoint.lat).toBeCloseTo(37.775);
-      expect(json.defendPoint.lng).toBeCloseTo(-122.415);
+      expect(json.baseLocation.lat).toBeCloseTo(37.775);
+      expect(json.baseLocation.lng).toBeCloseTo(-122.415);
       expect(json.metadata?.name).toBe('Test Map');
     });
 
     it('should serialize to string', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       const str = config.toString();
 
       expect(str).toContain('"version"');
       expect(str).toContain('"bounds"');
-      expect(str).toContain('"defendPoint"');
+      expect(str).toContain('"baseLocation"');
       expect(() => JSON.parse(str)).not.toThrow();
     });
 
     it('should deserialize from JSON', () => {
-      const original = new MapConfiguration(validBounds, validDefendPoint, 'Test Map');
+      const original = new MapConfiguration(validBounds, validBaseLocation, 'Test Map');
       const json = original.toJSON();
       const restored = MapConfiguration.fromJSON(json);
 
@@ -95,24 +95,24 @@ describe('MapConfiguration', () => {
       expect(restored.bounds.getSouth()).toBeCloseTo(original.bounds.getSouth());
       expect(restored.bounds.getEast()).toBeCloseTo(original.bounds.getEast());
       expect(restored.bounds.getWest()).toBeCloseTo(original.bounds.getWest());
-      expect(restored.defendPoint.lat).toBeCloseTo(original.defendPoint.lat);
-      expect(restored.defendPoint.lng).toBeCloseTo(original.defendPoint.lng);
+      expect(restored.baseLocation.lat).toBeCloseTo(original.baseLocation.lat);
+      expect(restored.baseLocation.lng).toBeCloseTo(original.baseLocation.lng);
       expect(restored.metadata.name).toBe('Test Map');
     });
 
     it('should deserialize from string', () => {
-      const original = new MapConfiguration(validBounds, validDefendPoint);
+      const original = new MapConfiguration(validBounds, validBaseLocation);
       const str = original.toString();
       const restored = MapConfiguration.fromString(str);
 
       expect(restored.bounds.getNorth()).toBeCloseTo(original.bounds.getNorth());
-      expect(restored.defendPoint.lat).toBeCloseTo(original.defendPoint.lat);
+      expect(restored.baseLocation.lat).toBeCloseTo(original.baseLocation.lat);
     });
   });
 
   describe('getBoundsSizeKm', () => {
     it('should return approximate size in kilometers', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       const size = config.getBoundsSizeKm();
 
       expect(size.width).toBeGreaterThan(0);
@@ -124,7 +124,7 @@ describe('MapConfiguration', () => {
 
   describe('getBoundsSizeMiles', () => {
     it('should return approximate size in miles', () => {
-      const config = new MapConfiguration(validBounds, validDefendPoint);
+      const config = new MapConfiguration(validBounds, validBaseLocation);
       const size = config.getBoundsSizeMiles();
 
       expect(size.width).toBeGreaterThan(0);

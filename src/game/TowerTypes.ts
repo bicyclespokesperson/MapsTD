@@ -1,4 +1,4 @@
-export type TowerType = 'GUNNER' | 'SNIPER' | 'MINIGUN' | 'CANNON';
+export type TowerType = 'GUNNER' | 'SNIPER' | 'MINIGUN' | 'CANNON' | 'HELICOPTER';
 
 export type TargetingMode = 'FIRST' | 'LAST' | 'CLOSEST' | 'STRONGEST';
 
@@ -17,6 +17,11 @@ export interface TowerConfig {
   baseStats: TowerStats;
   color: number;
   upgrades: UpgradeTier[];
+}
+
+export interface HelicopterConfig extends TowerConfig {
+  patrolRadius: number;
+  patrolSpeed: number;
 }
 
 export interface UpgradeTier {
@@ -161,6 +166,59 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
       },
     ],
   },
+  HELICOPTER: {
+    name: 'Helicopter',
+    baseCost: 200,
+    color: 0x2d5a27,
+    patrolRadius: 150,
+    patrolSpeed: 50,
+    baseStats: {
+      damage: 50,
+      range: 500,
+      fireRateMs: 2000,
+      projectileSpeed: 180,
+      splashRadius: 40,
+      splashDamage: 25,
+    },
+    upgrades: [
+      {
+        level: 2,
+        cost: 150,
+        stats: {
+          damage: 70,
+          range: 560,
+          fireRateMs: 1800,
+          projectileSpeed: 200,
+          splashRadius: 50,
+          splashDamage: 35,
+        },
+      },
+      {
+        level: 3,
+        cost: 220,
+        stats: {
+          damage: 100,
+          range: 620,
+          fireRateMs: 1600,
+          projectileSpeed: 220,
+          splashRadius: 60,
+          splashDamage: 50,
+        },
+      },
+      {
+        level: 4,
+        cost: 300,
+        stats: {
+          damage: 140,
+          range: 700,
+          fireRateMs: 1400,
+          projectileSpeed: 240,
+          splashRadius: 75,
+          splashDamage: 70,
+        },
+      },
+    ],
+  } as HelicopterConfig,
 };
 
 export const TARGETING_LABELS: Record<TargetingMode, string> = {

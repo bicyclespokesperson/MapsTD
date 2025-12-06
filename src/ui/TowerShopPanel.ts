@@ -19,7 +19,7 @@ export class TowerShopPanel {
   }
 
   private createTowerCards(): void {
-    const towerTypes: TowerType[] = ['GUNNER', 'SNIPER', 'MINIGUN', 'CANNON'];
+    const towerTypes: TowerType[] = ['GUNNER', 'SNIPER', 'MINIGUN', 'CANNON', 'HELICOPTER'];
 
     for (const type of towerTypes) {
       const config = TOWER_CONFIGS[type];
