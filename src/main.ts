@@ -223,14 +223,14 @@ class GameScene extends Phaser.Scene {
     const alpha = this.isValidPlacement ? 0.5 : 0.3;
     const rangeInPixels = config.baseStats.range * this.converter.pixelsPerMeter();
 
-    // For helicopters, draw both domain and range circles
+    // For helicopters, draw total domain circle (movement + weapon range)
     if (this.placementType === 'HELICOPTER') {
       const heliConfig = config as HelicopterConfig;
-      const domainInPixels = heliConfig.domainRadius * this.converter.pixelsPerMeter();
+      const totalDomainInPixels = (heliConfig.domainRadius + config.baseStats.range) * this.converter.pixelsPerMeter();
 
-      // Domain circle (outer, dashed-style via lower alpha)
+      // Total domain circle (outer)
       this.previewGraphics.lineStyle(2, 0xffffff, 0.3);
-      this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, domainInPixels);
+      this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, totalDomainInPixels);
     }
 
     // Range circle

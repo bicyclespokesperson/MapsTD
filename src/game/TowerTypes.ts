@@ -172,13 +172,13 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Helicopter',
     baseCost: 200,
     color: 0x2d5a27,
-    domainRadius: 600,
+    domainRadius: 450,
     moveSpeed: 120,
     turnSpeed: 120,
     acceleration: 150,
     baseStats: {
       damage: 50,
-      range: 350,
+      range: 260,
       fireRateMs: 2000,
       projectileSpeed: 180,
       splashRadius: 40,
@@ -190,7 +190,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 150,
         stats: {
           damage: 70,
-          range: 390,
+          range: 290,
           fireRateMs: 1800,
           projectileSpeed: 200,
           splashRadius: 50,
@@ -202,7 +202,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 220,
         stats: {
           damage: 100,
-          range: 430,
+          range: 320,
           fireRateMs: 1600,
           projectileSpeed: 220,
           splashRadius: 60,
@@ -214,7 +214,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 300,
         stats: {
           damage: 140,
-          range: 490,
+          range: 365,
           fireRateMs: 1400,
           projectileSpeed: 240,
           splashRadius: 75,
