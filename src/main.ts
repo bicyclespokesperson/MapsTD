@@ -11,7 +11,7 @@ import { TowerManager } from './game/TowerManager';
 import { Projectile } from './game/Projectile';
 import { TowerShopPanel } from './ui/TowerShopPanel';
 import { TowerInfoPanel } from './ui/TowerInfoPanel';
-import { TowerType, TOWER_CONFIGS } from './game/TowerTypes';
+import { TowerType, TOWER_CONFIGS, HelicopterConfig } from './game/TowerTypes';
 import { Tower } from './game/Tower';
 import { DeathEffect } from './game/DeathEffect';
 
@@ -223,9 +223,21 @@ class GameScene extends Phaser.Scene {
     const alpha = this.isValidPlacement ? 0.5 : 0.3;
     const rangeInPixels = config.baseStats.range * this.converter.pixelsPerMeter();
 
+    // For helicopters, draw both domain and range circles
+    if (this.placementType === 'HELICOPTER') {
+      const heliConfig = config as HelicopterConfig;
+      const domainInPixels = heliConfig.domainRadius * this.converter.pixelsPerMeter();
+
+      // Domain circle (outer, dashed-style via lower alpha)
+      this.previewGraphics.lineStyle(2, 0xffffff, 0.3);
+      this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, domainInPixels);
+    }
+
+    // Range circle
     this.previewGraphics.lineStyle(2, color, 0.6);
     this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, rangeInPixels);
 
+    // Tower indicator
     this.previewGraphics.fillStyle(config.color, alpha);
     this.previewGraphics.fillCircle(screenPos.x, screenPos.y, 10);
 

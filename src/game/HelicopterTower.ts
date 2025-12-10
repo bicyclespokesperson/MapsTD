@@ -426,7 +426,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
 
     // Sync latLng
     try {
-        this.currentLatLng = this.converter.pixelToLatLng(new Phaser.Math.Vector2(this.x, this.y));
+        this.currentLatLng = this.converter.pixelToLatLng(this.x, this.y);
     } catch (e) {
         console.error('Failed to sync LatLng, resetting to home', e);
         this.currentLatLng = L.latLng(this.geoPosition.lat, this.geoPosition.lng);
