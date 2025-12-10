@@ -20,10 +20,17 @@ export interface TowerStatistics {
   createdAt: number;
 }
 
+enum HelicopterState {
+  IDLE,      // Patrolling/Orbiting home base
+  CHASING,   // Flying towards a target
+  ATTACKING, // Orbiting/Engaging a target
+  RETURNING  // Flying back to home base
+}
+
 export class HelicopterTower extends Phaser.GameObjects.Container {
   public readonly type: TowerType = 'HELICOPTER';
   public readonly config: HelicopterConfig;
-  public readonly geoPosition: { lat: number; lng: number }; // Center of patrol
+  public readonly geoPosition: { lat: number; lng: number }; // Center of patrol (Home Base)
 
   public level: number = 1;
   public stats: TowerStats;
@@ -34,14 +41,22 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   private currentTarget: Enemy | null = null;
   private timeSinceLastFire: number = 0;
   
-  // Patrol properties
-  private patrolAngle: number = 0;
-  private patrolRadius: number;
-  private patrolSpeed: number;
+  // Flight State
+  private flightState: HelicopterState = HelicopterState.IDLE;
+  
+  // Physics
+  private currentSpeed: number = 0;
+  
+  // Position
   private currentLatLng: L.LatLng;
+  
+  // Attack/Orbit logic
+  private orbitAngle: number = 0;
+  private readonly ORBIT_RADIUS = 50; // Distance to orbit target/home
   
   // Visual components
   private rangeCircle!: Phaser.GameObjects.Arc;
+  private domainCircle!: Phaser.GameObjects.Arc;
   private visualContainer!: Phaser.GameObjects.Container;
   private helicopterBody!: Phaser.GameObjects.Graphics;
   private mainRotor!: Phaser.GameObjects.Graphics;
@@ -52,7 +67,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   private rotorAngle: number = 0;
   
   // Scaling factor for visuals
-  private readonly VISUAL_SCALE: number = 0.7; // Scaled down for game view
+  private readonly VISUAL_SCALE: number = 0.7;
 
   constructor(
     scene: Phaser.Scene,
@@ -67,8 +82,6 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     this.geoPosition = geoPosition;
     this.converter = converter;
     this.stats = { ...this.config.baseStats };
-    this.patrolRadius = this.config.patrolRadius;
-    this.patrolSpeed = this.config.patrolSpeed;
     this.currentLatLng = L.latLng(geoPosition.lat, geoPosition.lng);
 
     this.statistics = {
@@ -84,50 +97,52 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   }
 
   private createVisuals(): void {
-    // Range circle (moves with helicopter, NOT scaled by visual container)
-    // We strive to keep this accurate to game logic
+    // 1. Domain Circle (Outer limit of patrol) - Dashed/Subtle
+    this.domainCircle = this.scene.add.arc(0, 0, this.getDomainInPixels(), 0, 360, false, 0xffffff, 0);
+    this.domainCircle.setStrokeStyle(2, 0xffffff, 0.2); // White, dashed-ish effect via low alpha
+    this.domainCircle.setVisible(false); // Only visible when selected
+    this.add(this.domainCircle);
+
+    // 2. Range Circle (Weapon range) - Solid colored
     this.rangeCircle = this.scene.add.arc(0, 0, this.getRangeInPixels(), 0, 360, false, 0xffffff, 0);
-    this.rangeCircle.setStrokeStyle(2, this.config.color, 0.3);
-    this.rangeCircle.setVisible(true); // Always visible while flying
+    this.rangeCircle.setStrokeStyle(2, this.config.color, 0.4);
+    this.rangeCircle.setVisible(false); // Only visible when selected
     this.add(this.rangeCircle);
 
-    // Container for all helicopter visuals (scaled freely)
+    // 3. Visual Container (Helicopter sprite)
     this.visualContainer = this.scene.add.container(0, 0);
     this.visualContainer.setScale(this.VISUAL_SCALE);
     this.add(this.visualContainer);
 
     // --- Helicopter Graphics ---
-    // Using Graphics for cleaner shapes than multiple Rectangles
     this.helicopterBody = this.scene.add.graphics();
     this.visualContainer.add(this.helicopterBody);
     
-    // Draw body parts
     this.drawBody();
     
     // Rotor mast
     const rotorMast = this.scene.add.rectangle(0, 0, 6, 8, 0x333333);
     this.visualContainer.add(rotorMast);
 
-    // Main rotor (spinning blades)
+    // Main rotor
     this.mainRotor = this.scene.add.graphics();
     this.visualContainer.add(this.mainRotor);
-    this.drawRotor(); // Initial draw
+    this.drawRotor();
 
     // Tail rotor
     this.tailRotor = this.scene.add.graphics();
-    // Position tailored for the new body shape
     this.tailRotor.setPosition(0, 42); 
     this.visualContainer.add(this.tailRotor);
-    this.drawTailRotor(); // Initial draw
+    this.drawTailRotor();
 
     // Level indicator
     this.levelText = this.scene.add.text(0, 0, this.level.toString(), {
-      fontSize: '14px', // Smaller font since it's scaled up
+      fontSize: '14px',
       color: '#ffffff',
       fontStyle: 'bold',
     });
     this.levelText.setOrigin(0.5, 0.5);
-    this.visualContainer.add(this.levelText); // Add to container so it scales
+    this.visualContainer.add(this.levelText);
   }
 
   private drawBody(): void {
@@ -137,56 +152,49 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     const color = this.config.color;
     const strokeColor = 0xffffff;
 
-    // 1. Skids (Landing Gear)
-    // 1. Skids (Landing Gear)
+    // Skids
     graphics.lineStyle(2, 0x333333);
     
-    // Left Skid assembly
     graphics.beginPath();
-    graphics.moveTo(-8, 10); graphics.lineTo(-8, 15); // Back strut
-    graphics.moveTo(-8, -5); graphics.lineTo(-8, -10); // Front strut
-    graphics.moveTo(-8, 18); graphics.lineTo(-8, -25); // Main Runner (long)
+    graphics.moveTo(-8, 10); graphics.lineTo(-8, 15);
+    graphics.moveTo(-8, -5); graphics.lineTo(-8, -10);
+    graphics.moveTo(-8, 18); graphics.lineTo(-8, -25);
     graphics.strokePath();
 
-    // Right Skid assembly
     graphics.beginPath();
-    graphics.moveTo(8, 10); graphics.lineTo(8, 15); // Back strut
-    graphics.moveTo(8, -5); graphics.lineTo(8, -10); // Front strut
-    graphics.moveTo(8, 18); graphics.lineTo(8, -25); // Main Runner (long)
+    graphics.moveTo(8, 10); graphics.lineTo(8, 15);
+    graphics.moveTo(8, -5); graphics.lineTo(8, -10);
+    graphics.moveTo(8, 18); graphics.lineTo(8, -25);
     graphics.strokePath();
 
-    // 2. Tail Boom
+    // Tail Boom
     graphics.fillStyle(color);
     graphics.lineStyle(1, strokeColor);
     graphics.beginPath();
     graphics.moveTo(-4, 0);
     graphics.lineTo(4, 0);
-    graphics.lineTo(2, 45); // Taper towards back
+    graphics.lineTo(2, 45);
     graphics.lineTo(-2, 45);
     graphics.closePath();
     graphics.fillPath();
     graphics.strokePath();
 
-    // 3. Tail Fin (Horizontal Stabilizer)
+    // Tail Fin
     graphics.fillStyle(color);
     graphics.fillRoundedRect(-10, 38, 20, 4, 1);
     graphics.strokeRoundedRect(-10, 38, 20, 4, 1);
 
-    // 4. Main Body (Fuselage) - Teardrop/Oval shape
-    // Using an ellipse for a smoother look
+    // Fuselage
     graphics.fillStyle(color);
     graphics.lineStyle(2, strokeColor);
-    // Ellipse centered slightly forward
     graphics.fillEllipse(0, -2, 22, 30);
     graphics.strokeEllipse(0, -2, 22, 30);
 
-    // 5. Cockpit / Windshield
-    graphics.fillStyle(0x87CEEB); // Sky blue
+    // Cockpit
+    graphics.fillStyle(0x87CEEB);
     graphics.lineStyle(1, 0x4a90a4);
-    // Draw a shape at the front (top in 2D top-down view) - using arc/chord
     graphics.beginPath();
-    // Arc for windshield
-    graphics.arc(0, -6, 9, Math.PI, 2 * Math.PI, false); // Upper half circle-ish
+    graphics.arc(0, -6, 9, Math.PI, 2 * Math.PI, false);
     graphics.closePath();
     graphics.fillPath();
     graphics.strokePath();
@@ -195,26 +203,20 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   private drawRotor(): void {
     this.mainRotor.clear();
     this.mainRotor.lineStyle(2, 0xcccccc, 0.8);
-    this.mainRotor.fillStyle(0xeeeeee, 0.5); // Translucent blur effect
+    this.mainRotor.fillStyle(0xeeeeee, 0.5);
+    const bladeLength = 35;
 
-    const bladeLength = 35; // Shortened from 45 as requested
-
-    // Draw 2 blades
     for (let i = 0; i < 2; i++) {
         const angle = this.rotorAngle + (i * Math.PI);
-        
-        // Blade logic
         const dx = Math.cos(angle);
         const dy = Math.sin(angle);
         
-        // Draw blade line (crisp center)
         this.mainRotor.beginPath();
         this.mainRotor.moveTo(0, 0);
         this.mainRotor.lineTo(dx * bladeLength, dy * bladeLength);
         this.mainRotor.strokePath();
     }
     
-    // Hub
     this.mainRotor.fillStyle(0x555555);
     this.mainRotor.fillCircle(0, 0, 3);
   }
@@ -222,12 +224,10 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   private drawTailRotor(): void {
     this.tailRotor.clear();
     this.tailRotor.lineStyle(1, 0xcccccc, 0.9);
-    
     const bladeLength = 12;
     
-    // Draw 2 small blades
     for (let i = 0; i < 2; i++) {
-        const angle = this.rotorAngle * 2 + (i * Math.PI); // Spin faster
+        const angle = this.rotorAngle * 2 + (i * Math.PI);
         const dx = Math.cos(angle);
         const dy = Math.sin(angle);
         
@@ -237,163 +237,356 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
         this.tailRotor.strokePath();
     }
     
-    // Hub
     this.tailRotor.fillStyle(0x555555);
     this.tailRotor.fillCircle(0, 0, 1.5);
   }
 
   public setSelected(selected: boolean): void {
     this.rangeCircle.setVisible(selected);
-    // Highlight the body graphic
-    // We can't easily change stroke of a drawn graphic without redrawing, 
-    // but we can add a selection indicator to the container
-    if (selected) {
-        // Just ensure range circle is visible
-    }
+    this.domainCircle.setVisible(selected);
   }
 
   public update(delta: number, enemies: Enemy[], isWaveActive: boolean = true): void {
-    // Update patrol position only during active waves
-    if (isWaveActive) {
-      this.updatePatrolPosition(delta);
-    } else {
-      // Still update screen position when paused (for map panning)
-      this.updateScreenPosition();
-    }
-    
-    // Always animate rotors (looks like it's hovering/waiting)
     this.animateRotors(delta);
-    
-    // Tower combat logic - only fire during active waves
+
     if (isWaveActive) {
       this.timeSinceLastFire += delta;
-      this.updateRangeCircle();
+      
+      this.updateState(enemies);
+      this.updateMovement(delta);
+      this.updateCombat();
+    } else {
+      // When paused/wave inactive, return to base/idle
+      this.flightState = HelicopterState.RETURNING;
+      this.updateMovement(delta);
+    }
 
-      if (!this.currentTarget || this.currentTarget.isDead() || !this.isInRange(this.currentTarget)) {
-        this.currentTarget = this.findTarget(enemies);
+    // Always sync position
+    this.updateScreenPosition();
+    this.updateCircles();
+  }
+
+  private updateState(enemies: Enemy[]): void {
+    // 1. Validate current target
+    if (this.currentTarget && (this.currentTarget.isDead() || !this.isTargetInDomain(this.currentTarget))) {
+      this.currentTarget = null;
+    }
+
+    // 2. Find new target if needed
+    if (!this.currentTarget) {
+      this.currentTarget = this.findTarget(enemies);
+    }
+
+    // 3. Determine State
+    if (this.currentTarget) {
+      const distToTarget = Phaser.Math.Distance.Between(this.x, this.y, this.currentTarget.x, this.currentTarget.y);
+      if (distToTarget <= this.getRangeInPixels() * 0.8) { // Get a bit closer than max range
+        this.flightState = HelicopterState.ATTACKING;
+      } else {
+        this.flightState = HelicopterState.CHASING;
       }
+    } else {
+      // No target, check if we are at home
+      const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
+      const distToHome = Phaser.Math.Distance.Between(this.x, this.y, homePos.x, homePos.y);
+      
+      if (distToHome < this.ORBIT_RADIUS * 1.5) {
+        this.flightState = HelicopterState.IDLE;
+      } else {
+        this.flightState = HelicopterState.RETURNING;
+      }
+    }
+  }
 
-      if (this.currentTarget) {
-        // Aiming logic involves visual rotation if we want the helicopter to face target, 
-        // but it's patrolling. 
-        // We'll skip turret rotation for now as the new clean design simulates a fixed forward gun or internal bay.
-        // If we want turret, we can add it later.
-        
-        if (this.timeSinceLastFire >= this.stats.fireRateMs) {
+  private updateMovement(delta: number): void {
+    const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
+
+    // CRITICAL: NaN Recovery
+    // If we somehow got into a bad state (NaN position), reset to home immediately to prevent crash
+    if (isNaN(this.x) || isNaN(this.y)) {
+        console.warn('Helicopter recovered from NaN position');
+        this.x = homePos.x;
+        this.y = homePos.y;
+        this.currentSpeed = 0;
+        this.flightState = HelicopterState.RETURNING;
+    }
+
+    let targetX: number;
+    let targetY: number;
+    let shouldOrbit = false;
+
+    // Define destination based on state
+    switch (this.flightState) {
+      case HelicopterState.CHASING:
+        if (this.currentTarget) {
+          targetX = this.currentTarget.x;
+          targetY = this.currentTarget.y;
+        } else {
+            // Fallback
+            this.flightState = HelicopterState.RETURNING;
+            return; // Wait for next frame
+        }
+        break;
+
+      case HelicopterState.ATTACKING:
+        if (this.currentTarget) {
+          targetX = this.currentTarget.x;
+          targetY = this.currentTarget.y;
+          shouldOrbit = true;
+        } else {
+            this.flightState = HelicopterState.RETURNING;
+            return;
+        }
+        break;
+
+      case HelicopterState.RETURNING:
+      case HelicopterState.IDLE:
+        targetX = homePos.x;
+        targetY = homePos.y;
+        shouldOrbit = true; // Orbit home base when idle
+        break;
+
+      default:
+        targetX = homePos.x;
+        targetY = homePos.y;
+        break;
+    }
+
+    if (isNaN(targetX) || isNaN(targetY)) {
+        this.flightState = HelicopterState.RETURNING;
+        return;
+    }
+
+    // -- Physics Logic --
+    const dt = delta / 1000;
+    
+    // Calculate desired position (orbiting if needed)
+    if (shouldOrbit) {
+        this.orbitAngle += (this.currentSpeed / this.ORBIT_RADIUS) * dt;
+        targetX += Math.cos(this.orbitAngle) * this.ORBIT_RADIUS;
+        targetY += Math.sin(this.orbitAngle) * this.ORBIT_RADIUS;
+    }
+
+    // Vector to target
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
+    const distToTarget = Math.sqrt(dx * dx + dy * dy);
+
+    // Desired velocity vector
+    // We want to fly towards the target point
+    const angleToTarget = Math.atan2(dy, dx);
+    
+    // Accelerate towards target
+    const configSpeed = this.config.moveSpeed || 120;
+    const configAccel = this.config.acceleration || 150;
+    const configTurn = this.config.turnSpeed || 120;
+
+    if (distToTarget > 10) {
+        this.currentSpeed = Math.min(this.currentSpeed + configAccel * dt, configSpeed);
+    } else {
+        // Slow down if very close (and not orbiting) - though orbit logic handles "close"
+        this.currentSpeed = Math.max(this.currentSpeed - configAccel * dt, 0);
+    }
+
+    // Move in direction of angleToTarget (simplified homing for now)
+    // For more realism we could implement inertia, but direct homing is more robust for gameplay
+    const moveX = Math.cos(angleToTarget) * this.currentSpeed * dt;
+    const moveY = Math.sin(angleToTarget) * this.currentSpeed * dt;
+
+    if (!isNaN(moveX) && !isNaN(moveY)) {
+        this.x += moveX;
+        this.y += moveY;
+    }
+    
+    // Update Rotation (Visuals face movement)
+    // Add +90 degrees because sprite points UP (-Y), but 0 rad is RIGHT (+X)
+    let desiredRotation = angleToTarget + Math.PI / 2;
+    
+    // Lerp rotation for smoothness
+    // Shortest angle interpolation
+    const diff = desiredRotation - this.rotation;
+    const adjustedDiff = Math.atan2(Math.sin(diff), Math.cos(diff)); // Normalize to -PI, PI
+    
+    const turnAmount = (configTurn * Math.PI / 180) * dt;
+    
+    if (Math.abs(adjustedDiff) < turnAmount) {
+        this.setRotation(desiredRotation);
+    } else {
+        this.setRotation(this.rotation + Math.sign(adjustedDiff) * turnAmount);
+    }
+    
+    // Un-rotate text
+    this.levelText.setRotation(-this.rotation);
+    
+    // PRO ACTIVE SAFETY: Check again before calling converter
+    if (isNaN(this.x) || isNaN(this.y)) {
+         this.x = homePos.x;
+         this.y = homePos.y;
+    }
+
+    // Sync latLng
+    try {
+        this.currentLatLng = this.converter.pixelToLatLng(new Phaser.Math.Vector2(this.x, this.y));
+    } catch (e) {
+        console.error('Failed to sync LatLng, resetting to home', e);
+        this.currentLatLng = L.latLng(this.geoPosition.lat, this.geoPosition.lng);
+        // Force reset pixel pos to match valid lat/lng
+        const resetPos = this.converter.latLngToPixel(this.currentLatLng);
+        this.x = resetPos.x;
+        this.y = resetPos.y;
+    }
+  }
+
+  private updateCombat(): void {
+    if (this.flightState !== HelicopterState.ATTACKING || !this.currentTarget) return;
+
+    // Check if we can fire
+    if (this.timeSinceLastFire >= this.stats.fireRateMs) {
+      // Fire!
+      // Double check range just in case
+      if (this.isInRange(this.currentTarget)) {
           this.fire(this.currentTarget);
           this.timeSinceLastFire = 0;
-        }
       }
     }
   }
 
   private updateScreenPosition(): void {
-    // Just update screen position without moving patrol angle
-    const screenPos = this.converter.latLngToPixel(this.currentLatLng);
-    this.setPosition(screenPos.x, screenPos.y);
-  }
-
-  private updatePatrolPosition(delta: number): void {
-    // Calculate angular velocity (radians per second)
-    const angularVelocity = this.patrolSpeed / this.patrolRadius;
-    this.patrolAngle += angularVelocity * (delta / 1000);
+    // Already updating x/y directly in updateMovement
+    // But we might need to handle map panning if the whole world moves relative to camera?
+    // In this game, the map is the world.
+    // However, if the map is panned (Leaflet), we need to re-project our LatLng to new Pixels
     
-    // Keep angle in [0, 2π]
-    if (this.patrolAngle > Math.PI * 2) {
-      this.patrolAngle -= Math.PI * 2;
-    }
+    // Wait - in this architecture:
+    // Leaflet handles the view. Phaser overlay assumes (0,0) is top-left of the map container?
+    // No, CoordinateConverter usually handles specific offsets.
+    // If the map pans, the Phaser camera or the entities need to move.
+    // Let's look at `TowerManager.updateAll`.
+    // It updates towers: `tower.setPosition(screenPos.x, screenPos.y);`
     
-    // Calculate offset in meters, then convert to lat/lng
-    const metersPerDegreeLat = 111111;
-    const metersPerDegreeLng = metersPerDegreeLat * Math.cos(this.geoPosition.lat * Math.PI / 180);
+    // Since we are moving ourselves autonomously in pixels, we need to be careful.
+    // Actually, `CoordinateConverter` likely accounts for current map bounds.
+    // If we fly in pixels, we update our LatLng.
+    // **BUT** if the user pans the map, our conceptual pixel position changes!
+    // So we should **primary** on LatLng, and update pixel position from that? 
+    // OR primary on Pixel for physics, and update LatLng?
     
-    const offsetLat = Math.cos(this.patrolAngle) * this.patrolRadius / metersPerDegreeLat;
-    const offsetLng = Math.sin(this.patrolAngle) * this.patrolRadius / metersPerDegreeLng;
+    // Best approach:
+    // 1. Convert current LatLng to Pixels (Target).
+    // 2. Apply physics in Pixels.
+    // 3. Convert new Pixels back to LatLng.
+    // This allows panning to work (Target pixel changes, we fly towards it).
     
-    this.currentLatLng = L.latLng(
-      this.geoPosition.lat + offsetLat,
-      this.geoPosition.lng + offsetLng
-    );
+    // Refactoring updateMovement to primarily use LatLng logic is hard for physics.
+    // Instead: We calculate standard physics in screen space, but we must re-sync.
+    // Actually, `updateScreenPosition` in the old code did:
+    // `const screenPos = this.converter.latLngToPixel(this.currentLatLng);`
+    // `this.setPosition(screenPos.x, screenPos.y);`
     
-    // Update screen position
-    const screenPos = this.converter.latLngToPixel(this.currentLatLng);
-    this.setPosition(screenPos.x, screenPos.y);
+    // If we move `this.x/y` manually in `updateMovement`, we are fighting `TowerManager` if it calls `setPosition`.
+    // Let's check `TowerManager.ts`.
+    // `if (tower instanceof HelicopterTower) { tower.update(...) } else { setPosition(...) }`
+    // So TowerManager does *NOT* set position for Helicopters. We are responsible.
     
-    // Rotate helicopter to face direction of movement (tangent to circle)
-    // Tangent is perpendicular to radius, so add π/2 to patrol angle
-    const movementAngle = this.patrolAngle + Math.PI / 2;
-    // We rotate the visual container? No, rotate the whole container (this)
-    // But this involves rotating `this`. Visuals are inside.
-    this.setRotation(movementAngle);
+    // So:
+    // 1. We have `currentLatLng`.
+    // 2. We convert `currentLatLng` to `currentPixelPos` (this handles map pan).
+    // 3. We calculate physics logic based on `currentPixelPos` (start) and Target (end).
+    // 4. We apply delta to `currentPixelPos` to get `newPixelPos`.
+    // 5. We Convert `newPixelPos` back to `currentLatLng`.
+    // 6. We set `this.setPosition(newPixelPos)`.
     
-    // Keep level text upright? 
-    // If we want text upright, we'd counter-rotate it. 
-    // For now let it rotate with heli.
-    this.levelText.setRotation(-movementAngle);
+    // Let's adjust `updateMovement` to follow this strict flow. I implemented roughly this at the end of the previous `updateMovement`
+    // but I need to make sure `this.x` and `this.y` are initialized correctly at start of frame.
+    
+    const worldPos = this.converter.latLngToPixel(this.currentLatLng);
+    // If physics moved us far away, this ensures we snap back to where we effectively "are" on the map
+    // This handles the map panning underneath us.
+    this.x = worldPos.x;
+    this.y = worldPos.y;
   }
 
   private animateRotors(delta: number): void {
-    // Fast rotor spin (complete rotation in ~200ms)
     this.rotorAngle += (delta / 200) * Math.PI * 2;
     if (this.rotorAngle > Math.PI * 2) {
       this.rotorAngle -= Math.PI * 2;
     }
-    
     this.drawRotor();
     this.drawTailRotor();
   }
 
-  private updateRangeCircle(): void {
-    this.rangeCircle.setRadius(this.getRangeInPixels());
+  private updateCircles(): void {
+    const rangePixels = this.getRangeInPixels();
+    const domainPixels = this.getDomainInPixels();
+    
+    // Only update radius if changed (optimization)
+    if (this.rangeCircle.radius !== rangePixels) {
+        this.rangeCircle.setRadius(rangePixels);
+        this.domainCircle.setRadius(domainPixels);
+    }
+    
+    // Position circles at helicopter? No, range is at heli, domain is at HOME.
+    // Domain Circle should be centered at HOME BASE (geoPosition)
+    const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
+    this.domainCircle.setPosition(homePos.x - this.x, homePos.y - this.y); 
+    // ^ Relative position because circles are children of this container!
+    
+    // Range circle is attached to heli, so (0,0) is correct relative pos.
+    this.rangeCircle.setPosition(0, 0);
   }
 
   private findTarget(enemies: Enemy[]): Enemy | null {
-    const enemiesInRange = enemies.filter(
-      (enemy) => !enemy.isDead() && this.isInRange(enemy)
+    const enemiesInDomain = enemies.filter(
+      (enemy) => !enemy.isDead() && this.isTargetInDomain(enemy)
     );
 
-    if (enemiesInRange.length === 0) return null;
+    if (enemiesInDomain.length === 0) return null;
 
+    // Standard targeting logic (First, Strongest, etc)
+    // We can reuse the same sorting logic
     switch (this.targetingMode) {
       case 'FIRST':
-        return enemiesInRange.reduce((closest, enemy) =>
+        return enemiesInDomain.reduce((closest, enemy) =>
           enemy.getDistanceToGoal() < closest.getDistanceToGoal() ? enemy : closest
         );
       case 'LAST':
-        return enemiesInRange.reduce((furthest, enemy) =>
+        return enemiesInDomain.reduce((furthest, enemy) =>
           enemy.getDistanceToGoal() > furthest.getDistanceToGoal() ? enemy : furthest
         );
       case 'CLOSEST':
-        return enemiesInRange.reduce((closest, enemy) => {
-          const distToClosest = Phaser.Math.Distance.Between(
-            this.x,
-            this.y,
-            closest.x,
-            closest.y
-          );
-          const distToEnemy = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
-          return distToEnemy < distToClosest ? enemy : closest;
+        // Closest to HELICOPTER
+        return enemiesInDomain.reduce((closest, enemy) => {
+          const d1 = Phaser.Math.Distance.Between(this.x, this.y, closest.x, closest.y);
+          const d2 = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
+          return d2 < d1 ? enemy : closest;
         });
       case 'STRONGEST':
-        // Target based on CURRENT health
-        return enemiesInRange.reduce((strongest, enemy) =>
+        return enemiesInDomain.reduce((strongest, enemy) =>
           enemy.getHealth() > strongest.getHealth() ? enemy : strongest
         );
       default:
-        return enemiesInRange[0];
+        return enemiesInDomain[0];
     }
   }
 
   private getRangeInPixels(): number {
     return this.stats.range * this.converter.pixelsPerMeter();
   }
+  
+  private getDomainInPixels(): number {
+    return this.config.domainRadius * this.converter.pixelsPerMeter();
+  }
 
   private isInRange(enemy: Enemy): boolean {
     const distance = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
     return distance <= this.getRangeInPixels();
   }
-
-
+  
+  private isTargetInDomain(enemy: Enemy): boolean {
+      const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
+      const distance = Phaser.Math.Distance.Between(homePos.x, homePos.y, enemy.x, enemy.y);
+      return distance <= this.getDomainInPixels();
+  }
 
   private fire(target: Enemy): void {
     this.statistics.shotsFired++;
@@ -466,7 +659,6 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     this.statistics.kills++;
   }
 
-  // Getter for current position (used by projectiles)
   public getCurrentLatLng(): L.LatLng {
     return this.currentLatLng;
   }

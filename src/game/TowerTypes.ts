@@ -20,8 +20,10 @@ export interface TowerConfig {
 }
 
 export interface HelicopterConfig extends TowerConfig {
-  patrolRadius: number;
-  patrolSpeed: number;
+  domainRadius: number; // The large area it patrols/chases within
+  moveSpeed: number;    // Maximum flight speed
+  turnSpeed: number;    // Rotation speed in degrees per second
+  acceleration: number; // Acceleration in pixels/sec^2
 }
 
 export interface UpgradeTier {
@@ -170,8 +172,10 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Helicopter',
     baseCost: 200,
     color: 0x2d5a27,
-    patrolRadius: 210,
-    patrolSpeed: 50,
+    domainRadius: 600,
+    moveSpeed: 120,
+    turnSpeed: 120,
+    acceleration: 150,
     baseStats: {
       damage: 50,
       range: 350,
