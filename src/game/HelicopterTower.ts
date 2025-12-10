@@ -97,9 +97,9 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   }
 
   private createVisuals(): void {
-    // 1. Domain Circle (Outer limit of patrol) - Added to scene, not container, so it stays at home
+    // 1. Domain Circle (Total range = movement + weapon range) - Added to scene, not container
     const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
-    this.domainCircle = this.scene.add.arc(homePos.x, homePos.y, this.getDomainInPixels(), 0, 360, false, 0xffffff, 0);
+    this.domainCircle = this.scene.add.arc(homePos.x, homePos.y, this.getTotalDomainInPixels(), 0, 360, false, 0xffffff, 0);
     this.domainCircle.setStrokeStyle(2, 0xffffff, 0.2);
     this.domainCircle.setVisible(false);
     // Not added to container - stays fixed at home position
@@ -369,8 +369,20 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     const moveY = Math.sin(angleToTarget) * this.currentSpeed * dt;
 
     // Calculate new pixel position
-    const newPixelX = currentPos.x + moveX;
-    const newPixelY = currentPos.y + moveY;
+    let newPixelX = currentPos.x + moveX;
+    let newPixelY = currentPos.y + moveY;
+
+    // Clamp position within movement domain (so weapon range stays within total domain)
+    const movementRadius = this.getMovementDomainInPixels();
+    const dxFromHome = newPixelX - homePos.x;
+    const dyFromHome = newPixelY - homePos.y;
+    const distFromHome = Math.sqrt(dxFromHome * dxFromHome + dyFromHome * dyFromHome);
+
+    if (distFromHome > movementRadius) {
+        const scale = movementRadius / distFromHome;
+        newPixelX = homePos.x + dxFromHome * scale;
+        newPixelY = homePos.y + dyFromHome * scale;
+    }
 
     // Convert back to latLng (this is the source of truth)
     if (!isNaN(newPixelX) && !isNaN(newPixelY)) {
@@ -435,11 +447,11 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
 
   private updateCircles(): void {
     const rangePixels = this.getRangeInPixels();
-    const domainPixels = this.getDomainInPixels();
+    const totalDomainPixels = this.getTotalDomainInPixels();
 
     if (this.rangeCircle.radius !== rangePixels) {
         this.rangeCircle.setRadius(rangePixels);
-        this.domainCircle.setRadius(domainPixels);
+        this.domainCircle.setRadius(totalDomainPixels);
     }
 
     // Domain circle is in scene coordinates, position at home base
@@ -484,20 +496,24 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   private getRangeInPixels(): number {
     return this.stats.range * this.converter.pixelsPerMeter();
   }
-  
-  private getDomainInPixels(): number {
+
+  private getMovementDomainInPixels(): number {
     return this.config.domainRadius * this.converter.pixelsPerMeter();
+  }
+
+  private getTotalDomainInPixels(): number {
+    return this.getMovementDomainInPixels() + this.getRangeInPixels();
   }
 
   private isInRange(enemy: Enemy): boolean {
     const distance = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
     return distance <= this.getRangeInPixels();
   }
-  
+
   private isTargetInDomain(enemy: Enemy): boolean {
-      const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
-      const distance = Phaser.Math.Distance.Between(homePos.x, homePos.y, enemy.x, enemy.y);
-      return distance <= this.getDomainInPixels();
+    const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
+    const distance = Phaser.Math.Distance.Between(homePos.x, homePos.y, enemy.x, enemy.y);
+    return distance <= this.getTotalDomainInPixels();
   }
 
   private fire(target: Enemy): void {
