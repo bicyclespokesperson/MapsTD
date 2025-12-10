@@ -418,6 +418,8 @@ class UIManager {
       if (e.key === 'Escape') {
         if (this.selector.currentMode !== 'none') {
           this.selector.cancelSelection();
+        } else if (this.towerShopPanel.getSelectedType()) {
+          this.towerShopPanel.deselectTower();
         }
       }
       
