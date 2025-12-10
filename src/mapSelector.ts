@@ -159,8 +159,6 @@ export class MapSelector {
       }),
     }).addTo(this.map);
 
-    this.baseMarker.bindPopup('<b>Base Location</b>');
-
     this.noBuildCircle = L.circle(config.baseLocation, {
       radius: config.getNoBuildRadiusMeters(),
       color: '#ff0000',
@@ -330,8 +328,6 @@ export class MapSelector {
         shadowSize: [41, 41],
       }),
     }).addTo(this.map);
-
-    this.baseMarker.bindPopup('<b>Base Location</b>').openPopup();
 
     try {
       this.state.baseLocation = e.latlng;

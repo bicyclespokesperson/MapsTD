@@ -37,7 +37,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     color: 0x0066ff,
     baseStats: {
       damage: 25,
-      range: 600,
+      range: 420,
       fireRateMs: 1000,
       projectileSpeed: 400,
     },
@@ -45,17 +45,17 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
       {
         level: 2,
         cost: 60,
-        stats: { damage: 40, range: 700, fireRateMs: 850, projectileSpeed: 450 },
+        stats: { damage: 40, range: 490, fireRateMs: 850, projectileSpeed: 450 },
       },
       {
         level: 3,
         cost: 100,
-        stats: { damage: 65, range: 800, fireRateMs: 700, projectileSpeed: 500 },
+        stats: { damage: 65, range: 560, fireRateMs: 700, projectileSpeed: 500 },
       },
       {
         level: 4,
         cost: 150,
-        stats: { damage: 100, range: 900, fireRateMs: 500, projectileSpeed: 550 },
+        stats: { damage: 100, range: 630, fireRateMs: 500, projectileSpeed: 550 },
       },
     ],
   },
@@ -65,7 +65,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     color: 0x9900ff,
     baseStats: {
       damage: 75,
-      range: 1000,
+      range: 700,
       fireRateMs: 2500,
       projectileSpeed: Infinity,
     },
@@ -73,17 +73,17 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
       {
         level: 2,
         cost: 80,
-        stats: { damage: 120, range: 1120, fireRateMs: 2200, projectileSpeed: Infinity },
+        stats: { damage: 120, range: 780, fireRateMs: 2200, projectileSpeed: Infinity },
       },
       {
         level: 3,
         cost: 130,
-        stats: { damage: 180, range: 1240, fireRateMs: 1900, projectileSpeed: Infinity },
+        stats: { damage: 180, range: 870, fireRateMs: 1900, projectileSpeed: Infinity },
       },
       {
         level: 4,
         cost: 200,
-        stats: { damage: 280, range: 1400, fireRateMs: 1500, projectileSpeed: Infinity },
+        stats: { damage: 280, range: 980, fireRateMs: 1500, projectileSpeed: Infinity },
       },
     ],
   },
@@ -93,7 +93,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     color: 0xff6600,
     baseStats: {
       damage: 10,
-      range: 480,
+      range: 340,
       fireRateMs: 300,
       projectileSpeed: 500,
     },
@@ -101,17 +101,17 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
       {
         level: 2,
         cost: 70,
-        stats: { damage: 15, range: 540, fireRateMs: 250, projectileSpeed: 550 },
+        stats: { damage: 15, range: 380, fireRateMs: 250, projectileSpeed: 550 },
       },
       {
         level: 3,
         cost: 110,
-        stats: { damage: 22, range: 600, fireRateMs: 200, projectileSpeed: 600 },
+        stats: { damage: 22, range: 420, fireRateMs: 200, projectileSpeed: 600 },
       },
       {
         level: 4,
         cost: 170,
-        stats: { damage: 35, range: 680, fireRateMs: 150, projectileSpeed: 650 },
+        stats: { damage: 35, range: 480, fireRateMs: 150, projectileSpeed: 650 },
       },
     ],
   },
@@ -121,7 +121,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     color: 0xff0000,
     baseStats: {
       damage: 40,
-      range: 560,
+      range: 390,
       fireRateMs: 2000,
       projectileSpeed: 200,
       splashRadius: 30,
@@ -133,7 +133,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 100,
         stats: {
           damage: 60,
-          range: 640,
+          range: 450,
           fireRateMs: 1800,
           projectileSpeed: 220,
           splashRadius: 35,
@@ -145,7 +145,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 160,
         stats: {
           damage: 90,
-          range: 720,
+          range: 500,
           fireRateMs: 1600,
           projectileSpeed: 240,
           splashRadius: 40,
@@ -157,7 +157,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 250,
         stats: {
           damage: 140,
-          range: 840,
+          range: 590,
           fireRateMs: 1300,
           projectileSpeed: 260,
           splashRadius: 50,
@@ -174,7 +174,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     patrolSpeed: 50,
     baseStats: {
       damage: 50,
-      range: 500,
+      range: 350,
       fireRateMs: 2000,
       projectileSpeed: 180,
       splashRadius: 40,
@@ -186,7 +186,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 150,
         stats: {
           damage: 70,
-          range: 560,
+          range: 390,
           fireRateMs: 1800,
           projectileSpeed: 200,
           splashRadius: 50,
@@ -198,7 +198,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 220,
         stats: {
           damage: 100,
-          range: 620,
+          range: 430,
           fireRateMs: 1600,
           projectileSpeed: 220,
           splashRadius: 60,
@@ -210,7 +210,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
         cost: 300,
         stats: {
           damage: 140,
-          range: 700,
+          range: 490,
           fireRateMs: 1400,
           projectileSpeed: 240,
           splashRadius: 75,
@@ -225,7 +225,7 @@ export const TARGETING_LABELS: Record<TargetingMode, string> = {
   FIRST: 'First (Closest to Goal)',
   LAST: 'Last (Furthest from Goal)',
   CLOSEST: 'Closest to Tower',
-  STRONGEST: 'Strongest (Most HP)',
+  STRONGEST: 'Strongest (Most Current HP)',
 };
 
 export const ECONOMY = {

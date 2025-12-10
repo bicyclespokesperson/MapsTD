@@ -88,7 +88,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     // We strive to keep this accurate to game logic
     this.rangeCircle = this.scene.add.arc(0, 0, this.getRangeInPixels(), 0, 360, false, 0xffffff, 0);
     this.rangeCircle.setStrokeStyle(2, this.config.color, 0.3);
-    this.rangeCircle.setVisible(false);
+    this.rangeCircle.setVisible(true); // Always visible while flying
     this.add(this.rangeCircle);
 
     // Container for all helicopter visuals (scaled freely)
@@ -375,6 +375,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
           return distToEnemy < distToClosest ? enemy : closest;
         });
       case 'STRONGEST':
+        // Target based on CURRENT health
         return enemiesInRange.reduce((strongest, enemy) =>
           enemy.getHealth() > strongest.getHealth() ? enemy : strongest
         );

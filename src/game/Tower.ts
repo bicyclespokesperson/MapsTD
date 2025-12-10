@@ -142,6 +142,7 @@ export class Tower extends Phaser.GameObjects.Container {
           return distToEnemy < distToClosest ? enemy : closest;
         });
       case 'STRONGEST':
+        // Target based on CURRENT health
         return enemiesInRange.reduce((strongest, enemy) =>
           enemy.getHealth() > strongest.getHealth() ? enemy : strongest
         );

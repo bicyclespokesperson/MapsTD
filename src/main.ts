@@ -74,10 +74,8 @@ class GameScene extends Phaser.Scene {
     if (this.waveManager) {
       this.waveManager.update(time, delta);
 
-      // Skip tower/projectile updates if paused
-      if (this.waveManager.isPaused()) return;
-
-      const adjustedDelta = delta * this.waveManager.getSpeed();
+      // Calculate adjusted delta (0 if paused)
+      const adjustedDelta = this.waveManager.isPaused() ? 0 : delta * this.waveManager.getSpeed();
 
       if (this.towerManager) {
         const isWaveActive = this.waveManager.getActiveEnemies().length > 0;
@@ -421,6 +419,42 @@ class UIManager {
         if (this.selector.currentMode !== 'none') {
           this.selector.cancelSelection();
         }
+      }
+      
+      // Press 'L' to load test map for quick testing
+      // Only works when no game is in progress (wave 0)
+      if (e.key === 'l' || e.key === 'L') {
+        const currentWave = this.gameScene.waveManager.getStats().wave;
+        if (currentWave > 0) {
+          console.log('Cannot load test map - game already in progress');
+          return;
+        }
+        const testConfig = '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}';
+        
+        (async () => {
+          try {
+            const config = MapConfiguration.fromString(testConfig);
+            this.clearGame();
+            this.selector.loadConfiguration(config);
+            
+            // Load roads for the configuration
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+            
+            try {
+              await this.gameScene.loadRoadsFromOSM(config.bounds, config.baseLocation, (message) => {
+                if (loadingText) loadingText.textContent = message;
+              });
+              console.log('Test map loaded via L key');
+            } finally {
+              if (loadingOverlay) loadingOverlay.classList.add('hidden');
+              if (loadingText) loadingText.textContent = 'Loading Map Data...';
+            }
+          } catch (error) {
+            console.error('Failed to load test map:', error);
+          }
+        })();
       }
     });
 
