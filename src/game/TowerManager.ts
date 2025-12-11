@@ -198,8 +198,14 @@ export class TowerManager {
     // We need to iterate backwards since we might remove items
     for (let i = this.towers.length - 1; i >= 0; i--) {
         const tower = this.towers[i];
+
+        // Helicopters are immune to bomb explosions (they fly above the blast!)
+        if (tower instanceof HelicopterTower) {
+            continue;
+        }
+
         const dist = this.converter.distanceInMeters(center, L.latLng(tower.geoPosition));
-        
+
         if (dist <= radiusMeters) {
             this.removeTower(tower);
             // Visual effect for tower destruction?
