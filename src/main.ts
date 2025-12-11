@@ -552,7 +552,12 @@ class UIManager {
               await this.gameScene.loadRoadsFromOSM(config.bounds, config.baseLocation, (message) => {
                 if (loadingText) loadingText.textContent = message;
               });
-              console.log('Test map loaded via L key');
+
+              // Give QA money for testing
+              const qaBonus = GAME_CONFIG.ECONOMY.QA_STARTING_MONEY - GAME_CONFIG.ECONOMY.STARTING_MONEY;
+              this.gameScene.waveManager.addMoney(qaBonus);
+
+              console.log('Test map loaded via L key with QA money:', GAME_CONFIG.ECONOMY.QA_STARTING_MONEY);
             } finally {
               if (loadingOverlay) loadingOverlay.classList.add('hidden');
               if (loadingText) loadingText.textContent = 'Loading Map Data...';

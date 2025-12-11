@@ -28,7 +28,8 @@ export const GAME_CONFIG = {
     WIDTH: 3,
   },
   ECONOMY: {
-    STARTING_MONEY: 5000,
+    STARTING_MONEY: 200,
     STARTING_LIVES: 10,
+    QA_STARTING_MONEY: 50000, // Extra cash for QA testing with "l" key
   },
 };
