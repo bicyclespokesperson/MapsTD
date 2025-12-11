@@ -233,7 +233,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     color: 0xff0000,
     baseStats: {
       damage: 5000,
-      range: 60, // Blast radius in meters
+      range: 120, // Blast radius in meters
       fireRateMs: 0,
       projectileSpeed: 0,
     },
