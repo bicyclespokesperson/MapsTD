@@ -100,25 +100,8 @@ export class Bomb extends Phaser.GameObjects.Container {
     });
     
     // 3. Crater (permanent decal)
-    // We need to make sure the crater STAYS at the correct position too?
-    // Actually, simple Phaser objects don't move with the map unless updated.
-    // For now, let's create it. We might need a Crater class if we want craters to move too!
-    // But per prompt, "Bomb move with map". User didn't ask for Crater to move, but it's implied.
-    // However, I can't easily track all craters right now without a list.
-    // Let's implement Crater management in GameScene or simpler: use a container for map objects?
-    // Current architecture updates positions manually in update loops.
-    // For now, just create the crater. If user complains about crater not moving, we fix that next.
-    // Actually, static objects like roads are redrawn on update. 
-    // Maybe we should just let Craters be static? No, they will drift.
-    // Let's emit an event for crater creation so GameScene can manage them?
-    
-    // Changing approach: Emit event for visual effect that persists?
-    // Or just create it. The user specifically asked for "Bomb" to move.
-    const crater = this.scene.add.circle(this.x, this.y, radiusPixels, 0x333333, 0.7);
-    this.scene.children.sendToBack(crater); 
-    
-    // To support crater moving, we'd need to add it to a list in GameScene.
-    // Let's assume GameScene handles persistent map objects or we handle it later.
-    // For now, just the bomb itself moves.
+    // Emit event so GameScene can create a Crater object that tracks geo-position
+    // Pass radius in meters so crater stays consistent at different zoom levels
+    this.scene.events.emit('crater-created', this.geoPosition, this.config.baseStats.range);
   }
 }

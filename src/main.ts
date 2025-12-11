@@ -14,6 +14,7 @@ import { TowerInfoPanel } from './ui/TowerInfoPanel';
 import { TowerType, TOWER_CONFIGS, HelicopterConfig, BombConfig } from './game/TowerTypes';
 import { Tower } from './game/Tower';
 import { Bomb } from './game/Bomb';
+import { Crater } from './game/Crater';
 import { DeathEffect } from './game/DeathEffect';
 
 import { GAME_CONFIG } from './config';
@@ -32,6 +33,7 @@ class GameScene extends Phaser.Scene {
   private projectiles: Projectile[] = [];
   private deathEffects: DeathEffect[] = [];
   private bombs: Bomb[] = [];
+  private craters: Crater[] = [];
 
   private placementMode: boolean = false;
   private placementType: TowerType | null = null;
@@ -63,6 +65,10 @@ class GameScene extends Phaser.Scene {
 
     this.events.on('enemy-killed', (x: number, y: number, color: number, size: number) => {
       this.deathEffects.push(new DeathEffect(this, x, y, color, size));
+    });
+
+    this.events.on('crater-created', (geoPosition: L.LatLng, radiusMeters: number) => {
+      this.craters.push(new Crater(this, geoPosition, radiusMeters, this.converter));
     });
 
     (window as any).gameScene = this;
@@ -116,6 +122,10 @@ class GameScene extends Phaser.Scene {
             // So I should call bomb.update every frame.
             bomb.update(adjustedDelta, isWaveActive);
         }
+      }
+
+      for (const crater of this.craters) {
+        crater.update();
       }
     }
   }
@@ -353,6 +363,11 @@ class GameScene extends Phaser.Scene {
       bomb.destroy();
     }
     this.bombs = [];
+
+    for (const crater of this.craters) {
+      crater.destroy();
+    }
+    this.craters = [];
 
     this.roadNetwork = null;
     this.entries = [];
@@ -648,6 +663,7 @@ class UIManager {
     const killsEl = document.getElementById('game-over-kills');
     const moneyEl = document.getElementById('game-over-money');
     const playAgainBtn = document.getElementById('play-again-btn');
+    const replayMapBtn = document.getElementById('replay-map-btn');
 
     if (waveEl) waveEl.textContent = wave.toString();
     if (killsEl) killsEl.textContent = kills.toString();
@@ -660,6 +676,49 @@ class UIManager {
         if (overlay) overlay.classList.add('hidden');
         this.clearGame();
       };
+    }
+
+    if (replayMapBtn) {
+      replayMapBtn.onclick = async () => {
+        if (overlay) overlay.classList.add('hidden');
+        await this.replayCurrentMap();
+      };
+    }
+  }
+
+  private async replayCurrentMap() {
+    const currentConfig = this.selector.getState().config;
+    if (!currentConfig) {
+      console.error('No map configuration available to replay');
+      this.clearGame();
+      return;
+    }
+
+    this.clearGame();
+    this.selector.loadConfiguration(currentConfig);
+
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+
+    try {
+      await this.gameScene.loadRoadsFromOSM(currentConfig.bounds, currentConfig.baseLocation, (message) => {
+        if (loadingText) loadingText.textContent = message;
+      });
+
+      this.gameScene.setMapConfiguration(currentConfig);
+      this.towerInfoPanel.hide();
+      this.towerShopPanel.show();
+      this.wavePreview.classList.remove('hidden');
+      this.gameControls.classList.remove('hidden');
+      this.updateWavePreview();
+    } catch (error) {
+      console.error('Failed to reload map:', error);
+      alert('Failed to reload the map. Please try selecting a new area.');
+      this.clearGame();
+    } finally {
+      if (loadingOverlay) loadingOverlay.classList.add('hidden');
+      if (loadingText) loadingText.textContent = 'Loading Map Data...';
     }
   }
 

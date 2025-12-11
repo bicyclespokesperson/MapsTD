@@ -418,18 +418,39 @@ button:disabled {
   color: #fff;
 }
 
+.game-over-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.replay-map-btn,
 .play-again-btn {
-  background: linear-gradient(135deg, #646cff 0%, #4850b8 100%);
   border: none;
   color: white;
-  padding: 16px 48px;
-  font-size: 1.2rem;
+  padding: 16px 32px;
+  font-size: 1.1rem;
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
   transition: all 0.2s ease;
+}
+
+.replay-map-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+
+.replay-map-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+}
+
+.play-again-btn {
+  background: linear-gradient(135deg, #646cff 0%, #4850b8 100%);
   box-shadow: 0 4px 15px rgba(100, 108, 255, 0.4);
 }
 
@@ -438,6 +459,7 @@ button:disabled {
   box-shadow: 0 6px 20px rgba(100, 108, 255, 0.6);
 }
 
+.replay-map-btn:active,
 .play-again-btn:active {
   transform: translateY(0);
 }

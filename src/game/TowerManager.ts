@@ -4,7 +4,7 @@ import { Tower } from './Tower';
 import { HelicopterTower } from './HelicopterTower';
 import { Bomb } from './Bomb';
 import { Enemy } from './Enemy';
-import { TowerType, BombConfig, TOWER_CONFIGS } from './TowerTypes';
+import { TowerType } from './TowerTypes';
 import { CoordinateConverter } from '../coordinateConverter';
 import { MapConfiguration } from '../mapConfiguration';
 
