@@ -90,12 +90,12 @@ export class TowerManager {
   public isValidPlacement(geoPosition: L.LatLng, towerType?: TowerType): boolean {
     // Helicopters can be placed anywhere within bounds (they fly!)
     if (towerType === 'HELICOPTER') {
-      if (!this.mapConfig.bounds.contains(geoPosition)) {
+      if (!this.mapConfig.containsPoint(geoPosition)) {
         return false;
       }
     } else if (towerType === 'BOMB') {
        // Bombs can be placed anywhere within bounds (including over towers!)
-       if (!this.mapConfig.bounds.contains(geoPosition)) {
+       if (!this.mapConfig.containsPoint(geoPosition)) {
         return false;
       }
       // Skip tower spacing check for bombs - they can blow up towers!

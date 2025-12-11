@@ -1,12 +1,13 @@
 import * as L from 'leaflet';
 import { MapConfiguration } from './mapConfiguration';
 import { GAME_CONFIG } from './config';
+import { computeBoundingBox, sortCornersClockwise, pointInPolygon, polygonAreaSquareMeters } from './geometry';
 
-export type SelectionMode = 'none' | 'drawing-bounds' | 'placing-base';
+export type SelectionMode = 'none' | 'drawing-bounds' | 'clicking-corners' | 'placing-base';
 
 export interface SelectionState {
   mode: SelectionMode;
-  bounds: L.LatLngBounds | null;
+  area: L.LatLng[] | null;
   baseLocation: L.LatLng | null;
   config: MapConfiguration | null;
 }
@@ -15,32 +16,38 @@ export class MapSelector {
   private map: L.Map;
   private state: SelectionState;
 
-  private boundsRectangle: L.Rectangle | null = null;
+  private boundsPolygon: L.Polygon | null = null;
   private baseMarker: L.Marker | null = null;
   private noBuildCircle: L.Circle | null = null;
 
   private startPoint: L.LatLng | null = null;
   private tempRectangle: L.Rectangle | null = null;
+  private tempPolygon: L.Polygon | null = null;
+  private cornerMarkers: L.CircleMarker[] = [];
+  private customCorners: L.LatLng[] = [];
   private sizeTooltip: L.Tooltip | null = null;
   private rangePreviewCircle: L.Circle | null = null;
 
   private onStateChange: (state: SelectionState) => void;
   private onBoundsSelected?: (bounds: L.LatLngBounds) => void;
   private validateBaseLocation?: (point: L.LatLng) => boolean;
+  private onCornerCountChange?: (count: number) => void;
 
   constructor(
-    map: L.Map, 
+    map: L.Map,
     onStateChange: (state: SelectionState) => void,
     onBoundsSelected?: (bounds: L.LatLngBounds) => void,
-    validateBaseLocation?: (point: L.LatLng) => boolean
+    validateBaseLocation?: (point: L.LatLng) => boolean,
+    onCornerCountChange?: (count: number) => void
   ) {
     this.map = map;
     this.onStateChange = onStateChange;
     this.onBoundsSelected = onBoundsSelected;
     this.validateBaseLocation = validateBaseLocation;
+    this.onCornerCountChange = onCornerCountChange;
     this.state = {
       mode: 'none',
-      bounds: null,
+      area: null,
       baseLocation: null,
       config: null,
     };
@@ -59,9 +66,24 @@ export class MapSelector {
     this.notifyStateChange();
   }
 
+  startCustomSelection(): void {
+    this.clearSelection();
+    this.state.mode = 'clicking-corners';
+    this.customCorners = [];
+    this.map.getContainer().style.cursor = 'crosshair';
+
+    this.map.on('click', this.onCornerClick, this);
+
+    if (this.onCornerCountChange) {
+      this.onCornerCountChange(0);
+    }
+
+    this.notifyStateChange();
+  }
+
   startBaseSelection(): void {
-    if (!this.state.bounds) {
-      throw new Error('Must select bounds before placing base location');
+    if (!this.state.area) {
+      throw new Error('Must select area before placing base location');
     }
 
     this.state.mode = 'placing-base';
@@ -77,6 +99,7 @@ export class MapSelector {
     this.map.off('mousemove', this.onMouseMove, this);
     this.map.off('mouseup', this.onMouseUp, this);
     this.map.off('click', this.onBaseLocationClick, this);
+    this.map.off('click', this.onCornerClick, this);
 
     this.map.getContainer().style.cursor = '';
     this.map.getContainer().classList.remove('base-cursor');
@@ -86,6 +109,17 @@ export class MapSelector {
       this.tempRectangle.remove();
       this.tempRectangle = null;
     }
+
+    if (this.tempPolygon) {
+      this.tempPolygon.remove();
+      this.tempPolygon = null;
+    }
+
+    for (const marker of this.cornerMarkers) {
+      marker.remove();
+    }
+    this.cornerMarkers = [];
+    this.customCorners = [];
 
     if (this.sizeTooltip) {
       this.sizeTooltip.remove();
@@ -105,9 +139,9 @@ export class MapSelector {
   clearSelection(): void {
     this.cancelSelection();
 
-    if (this.boundsRectangle) {
-      this.boundsRectangle.remove();
-      this.boundsRectangle = null;
+    if (this.boundsPolygon) {
+      this.boundsPolygon.remove();
+      this.boundsPolygon = null;
     }
 
     if (this.baseMarker) {
@@ -127,7 +161,7 @@ export class MapSelector {
 
     this.state = {
       mode: 'none',
-      bounds: null,
+      area: null,
       baseLocation: null,
       config: null,
     };
@@ -138,11 +172,11 @@ export class MapSelector {
   loadConfiguration(config: MapConfiguration): void {
     this.clearSelection();
 
-    this.state.bounds = config.bounds;
+    this.state.area = config.area;
     this.state.baseLocation = config.baseLocation;
     this.state.config = config;
 
-    this.boundsRectangle = L.rectangle(config.bounds, {
+    this.boundsPolygon = L.polygon(config.area, {
       color: '#3388ff',
       weight: 3,
       fillOpacity: 0.1,
@@ -181,7 +215,123 @@ export class MapSelector {
   }
 
   isSelecting(): boolean {
-    return this.state.mode === 'drawing-bounds';
+    return this.state.mode === 'drawing-bounds' || this.state.mode === 'clicking-corners';
+  }
+
+  private onCornerClick = (e: L.LeafletMouseEvent): void => {
+    if (this.state.mode !== 'clicking-corners') return;
+
+    this.customCorners.push(e.latlng);
+
+    const marker = L.circleMarker(e.latlng, {
+      radius: 8,
+      color: '#3388ff',
+      fillColor: '#3388ff',
+      fillOpacity: 0.8,
+      weight: 2,
+    }).addTo(this.map);
+    this.cornerMarkers.push(marker);
+
+    if (this.onCornerCountChange) {
+      this.onCornerCountChange(this.customCorners.length);
+    }
+
+    this.updateTempPolygon();
+
+    if (this.customCorners.length === 4) {
+      this.completeCustomSelection();
+    }
+  };
+
+  private updateTempPolygon(): void {
+    if (this.tempPolygon) {
+      this.tempPolygon.remove();
+      this.tempPolygon = null;
+    }
+
+    if (this.sizeTooltip) {
+      this.sizeTooltip.remove();
+      this.sizeTooltip = null;
+    }
+
+    if (this.customCorners.length < 2) return;
+
+    const sortedCorners = this.customCorners.length === 4
+      ? sortCornersClockwise(this.customCorners)
+      : this.customCorners;
+
+    this.tempPolygon = L.polygon(sortedCorners, {
+      color: '#3388ff',
+      weight: 2,
+      fillOpacity: 0.1,
+      interactive: false,
+    }).addTo(this.map);
+
+    if (this.customCorners.length >= 3) {
+      const areaM2 = polygonAreaSquareMeters(sortedCorners);
+      const areaKm2 = areaM2 / 1_000_000;
+      const center = this.tempPolygon.getBounds().getCenter();
+
+      this.sizeTooltip = L.tooltip({
+        permanent: true,
+        direction: 'center',
+        className: 'size-tooltip',
+      })
+        .setLatLng(center)
+        .setContent(areaKm2 < 1 ? `${Math.round(areaM2)}m²` : `${areaKm2.toFixed(2)}km²`)
+        .addTo(this.map);
+    }
+  }
+
+  private completeCustomSelection(): void {
+    const sortedCorners = sortCornersClockwise(this.customCorners);
+    const bounds = computeBoundingBox(sortedCorners);
+    const { widthKm, heightKm } = this.getBoundsSize(bounds);
+    const { MIN_WIDTH_KM, MAX_WIDTH_KM, MIN_HEIGHT_KM, MAX_HEIGHT_KM } = GAME_CONFIG.MAP;
+
+    if (widthKm < MIN_WIDTH_KM || heightKm < MIN_HEIGHT_KM) {
+      alert(`Selection too small. Minimum bounding box is ${MIN_WIDTH_KM}km × ${MIN_HEIGHT_KM}km`);
+      this.cancelSelection();
+      return;
+    }
+
+    if (widthKm > MAX_WIDTH_KM || heightKm > MAX_HEIGHT_KM) {
+      alert(`Selection too large. Maximum bounding box is ${MAX_WIDTH_KM}km × ${MAX_HEIGHT_KM}km`);
+      this.cancelSelection();
+      return;
+    }
+
+    for (const marker of this.cornerMarkers) {
+      marker.remove();
+    }
+    this.cornerMarkers = [];
+
+    if (this.sizeTooltip) {
+      this.sizeTooltip.remove();
+      this.sizeTooltip = null;
+    }
+
+    if (this.boundsPolygon) {
+      this.boundsPolygon.remove();
+    }
+
+    this.boundsPolygon = this.tempPolygon;
+    if (this.boundsPolygon) {
+      this.boundsPolygon.setStyle({ weight: 3, color: '#3388ff', interactive: false });
+    }
+    this.tempPolygon = null;
+
+    this.state.area = sortedCorners;
+
+    this.map.off('click', this.onCornerClick, this);
+    this.map.getContainer().style.cursor = '';
+    this.state.mode = 'none';
+
+    if (this.onBoundsSelected) {
+      this.onBoundsSelected(bounds);
+    }
+
+    this.notifyStateChange();
   }
 
   private onMouseDown = (e: L.LeafletMouseEvent): void => {
@@ -226,7 +376,6 @@ export class MapSelector {
       this.sizeTooltip.setContent(`${widthStr} × ${heightStr}`);
     }
 
-    // Update range preview circle
     const center = bounds.getCenter();
     if (!this.rangePreviewCircle) {
       this.rangePreviewCircle = L.circle(center, {
@@ -237,7 +386,7 @@ export class MapSelector {
         fillOpacity: 0.1,
         interactive: false
       }).addTo(this.map);
-      
+
       this.rangePreviewCircle.bindTooltip('Avg Tower Range', {
         permanent: true,
         direction: 'center',
@@ -277,33 +426,40 @@ export class MapSelector {
       this.rangePreviewCircle = null;
     }
 
-    if (this.boundsRectangle) {
-      this.boundsRectangle.remove();
+    if (this.tempRectangle) {
+      this.tempRectangle.remove();
+      this.tempRectangle = null;
     }
 
-    this.boundsRectangle = this.tempRectangle;
-    this.boundsRectangle.setStyle({ weight: 3, color: '#3388ff', interactive: false });
+    const area = MapConfiguration.boundsToArea(bounds);
+    this.state.area = area;
 
-    this.tempRectangle = null;
+    this.boundsPolygon = L.polygon(area, {
+      color: '#3388ff',
+      weight: 3,
+      fillOpacity: 0.1,
+      interactive: false,
+    }).addTo(this.map);
+
     this.startPoint = null;
-
-    this.state.bounds = bounds;
     this.cancelSelection();
 
     if (this.onBoundsSelected) {
-        this.onBoundsSelected(bounds);
+      this.onBoundsSelected(bounds);
     }
   };
 
   private onBaseLocationClick = (e: L.LeafletMouseEvent): void => {
-    if (!this.state.bounds) return;
+    if (!this.state.area) return;
 
-    if (!this.state.bounds.contains(e.latlng)) {
-      alert('Base location must be inside the selected bounds!');
+    const isInside = pointInPolygon(e.latlng, this.state.area);
+
+    if (!isInside) {
+      alert('Base location must be inside the selected area!');
       this.startBaseSelection();
       return;
     }
-    
+
     if (this.validateBaseLocation && !this.validateBaseLocation(e.latlng)) {
         alert('Base location must be on a road!');
         this.startBaseSelection();
@@ -331,7 +487,10 @@ export class MapSelector {
 
     try {
       this.state.baseLocation = e.latlng;
-      this.state.config = new MapConfiguration(this.state.bounds, this.state.baseLocation);
+      this.state.config = new MapConfiguration(
+        this.state.area,
+        this.state.baseLocation
+      );
 
       this.noBuildCircle = L.circle(e.latlng, {
         radius: this.state.config.getNoBuildRadiusMeters(),

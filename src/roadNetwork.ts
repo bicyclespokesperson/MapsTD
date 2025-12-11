@@ -1,5 +1,6 @@
 import * as L from 'leaflet';
 import { RoadSegment } from './overpassClient';
+import { lineSegmentIntersection, pointInPolygon } from './geometry';
 
 export interface RoadPath {
   roadId: number;
@@ -376,7 +377,7 @@ export class RoadNetwork {
     return this.roads;
   }
 
-  findBoundaryEntries(targetPoint: L.LatLng): BoundaryEntry[] {
+  findBoundaryEntries(targetPoint: L.LatLng, area: L.LatLng[]): BoundaryEntry[] {
     const entries: BoundaryEntry[] = [];
 
     // 1. Find closest graph node to target (defend point)
@@ -390,7 +391,7 @@ export class RoadNetwork {
     const { previous } = this.graph.computeShortestPathsFrom(targetNodeId);
 
     for (const road of this.roads) {
-      const boundaryPoints = this.findRoadBoundaryIntersections(road);
+      const boundaryPoints = this.findRoadPolygonIntersections(road, area);
 
       for (const bp of boundaryPoints) {
         // 3. Find closest graph node to entry point
@@ -434,48 +435,34 @@ export class RoadNetwork {
     return entries;
   }
 
-  private findRoadBoundaryIntersections(
-    road: RoadSegment
+  private findRoadPolygonIntersections(
+    road: RoadSegment,
+    polygon: L.LatLng[]
   ): Array<{ position: L.LatLng; pointIndex: number; edge: 'north' | 'south' | 'east' | 'west' }> {
     const intersections: Array<{ position: L.LatLng; pointIndex: number; edge: 'north' | 'south' | 'east' | 'west' }> = [];
-    const north = this.bounds.getNorth();
-    const south = this.bounds.getSouth();
-    const east = this.bounds.getEast();
-    const west = this.bounds.getWest();
 
     for (let i = 0; i < road.points.length - 1; i++) {
-      const p1 = road.points[i];
-      const p2 = road.points[i + 1];
+      const roadP1 = road.points[i];
+      const roadP2 = road.points[i + 1];
 
-      const crossesNorth = this.segmentCrossesHorizontal(p1, p2, north);
-      if (crossesNorth) {
-        const intersection = this.horizontalIntersection(p1, p2, north);
-        if (intersection && this.isWithinBounds(intersection, 'horizontal')) {
-          intersections.push({ position: intersection, pointIndex: i, edge: 'north' });
-        }
-      }
+      // Check intersection with each polygon edge
+      for (let j = 0; j < polygon.length; j++) {
+        const polyP1 = polygon[j];
+        const polyP2 = polygon[(j + 1) % polygon.length];
 
-      const crossesSouth = this.segmentCrossesHorizontal(p1, p2, south);
-      if (crossesSouth) {
-        const intersection = this.horizontalIntersection(p1, p2, south);
-        if (intersection && this.isWithinBounds(intersection, 'horizontal')) {
-          intersections.push({ position: intersection, pointIndex: i, edge: 'south' });
-        }
-      }
+        const intersection = lineSegmentIntersection(roadP1, roadP2, polyP1, polyP2);
 
-      const crossesEast = this.segmentCrossesVertical(p1, p2, east);
-      if (crossesEast) {
-        const intersection = this.verticalIntersection(p1, p2, east);
-        if (intersection && this.isWithinBounds(intersection, 'vertical')) {
-          intersections.push({ position: intersection, pointIndex: i, edge: 'east' });
-        }
-      }
+        if (intersection) {
+          // Determine if this is an entry point (road going from outside to inside)
+          const roadP1Inside = pointInPolygon(roadP1, polygon);
+          const roadP2Inside = pointInPolygon(roadP2, polygon);
 
-      const crossesWest = this.segmentCrossesVertical(p1, p2, west);
-      if (crossesWest) {
-        const intersection = this.verticalIntersection(p1, p2, west);
-        if (intersection && this.isWithinBounds(intersection, 'vertical')) {
-          intersections.push({ position: intersection, pointIndex: i, edge: 'west' });
+          // Only count as entry if going from outside to inside
+          if (!roadP1Inside && roadP2Inside) {
+            // Determine approximate edge direction for compatibility
+            const edge = this.getPolygonEdgeDirection(polyP1, polyP2);
+            intersections.push({ position: intersection, pointIndex: i, edge });
+          }
         }
       }
     }
@@ -483,39 +470,20 @@ export class RoadNetwork {
     return intersections;
   }
 
-  private segmentCrossesHorizontal(p1: L.LatLng, p2: L.LatLng, lat: number): boolean {
-    return (p1.lat <= lat && p2.lat >= lat) || (p1.lat >= lat && p2.lat <= lat);
-  }
+  private getPolygonEdgeDirection(p1: L.LatLng, p2: L.LatLng): 'north' | 'south' | 'east' | 'west' {
+    const latDiff = Math.abs(p2.lat - p1.lat);
+    const lngDiff = Math.abs(p2.lng - p1.lng);
 
-  private segmentCrossesVertical(p1: L.LatLng, p2: L.LatLng, lng: number): boolean {
-    return (p1.lng <= lng && p2.lng >= lng) || (p1.lng >= lng && p2.lng <= lng);
-  }
-
-  private horizontalIntersection(p1: L.LatLng, p2: L.LatLng, lat: number): L.LatLng | null {
-    const latDiff = p2.lat - p1.lat;
-    if (Math.abs(latDiff) < 1e-10) return null;
-
-    const t = (lat - p1.lat) / latDiff;
-    const lng = p1.lng + t * (p2.lng - p1.lng);
-
-    return L.latLng(lat, lng);
-  }
-
-  private verticalIntersection(p1: L.LatLng, p2: L.LatLng, lng: number): L.LatLng | null {
-    const lngDiff = p2.lng - p1.lng;
-    if (Math.abs(lngDiff) < 1e-10) return null;
-
-    const t = (lng - p1.lng) / lngDiff;
-    const lat = p1.lat + t * (p2.lat - p1.lat);
-
-    return L.latLng(lat, lng);
-  }
-
-  private isWithinBounds(point: L.LatLng, direction: 'horizontal' | 'vertical'): boolean {
-    if (direction === 'horizontal') {
-      return point.lng >= this.bounds.getWest() && point.lng <= this.bounds.getEast();
+    if (latDiff > lngDiff) {
+      // More vertical edge
+      const avgLng = (p1.lng + p2.lng) / 2;
+      const centerLng = (this.bounds.getWest() + this.bounds.getEast()) / 2;
+      return avgLng > centerLng ? 'east' : 'west';
     } else {
-      return point.lat >= this.bounds.getSouth() && point.lat <= this.bounds.getNorth();
+      // More horizontal edge
+      const avgLat = (p1.lat + p2.lat) / 2;
+      const centerLat = (this.bounds.getSouth() + this.bounds.getNorth()) / 2;
+      return avgLat > centerLat ? 'north' : 'south';
     }
   }
 

@@ -15,8 +15,11 @@
       <div id="sidebar">
         <h1>Maps Tower Defense</h1>
         <div class="controls">
-          <button id="selectBoundsBtn">Select Area</button>
-          <p class="help-text">1. Drag to select map area</p>
+          <div class="selection-buttons">
+            <button id="selectBoundsBtn">Select Rectangle</button>
+            <button id="selectCustomBtn">Select Custom</button>
+          </div>
+          <p id="selection-help" class="help-text">1. Drag or click 4 corners</p>
 
           <button id="placeBaseBtn" disabled>Place Base Location</button>
           <p class="help-text">2. Click a road to place base</p>

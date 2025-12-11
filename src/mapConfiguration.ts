@@ -1,14 +1,17 @@
 import * as L from 'leaflet';
 
 import { GAME_CONFIG } from './config';
+import { pointInPolygon, computeBoundingBox } from './geometry';
+
+interface LatLngPoint {
+  lat: number;
+  lng: number;
+}
 
 export interface MapConfigData {
   version: string;
-  bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
+  area: {
+    corners: LatLngPoint[];
   };
   baseLocation: {
     lat: number;
@@ -20,18 +23,39 @@ export interface MapConfigData {
   };
 }
 
-export class MapConfiguration {
-  private static readonly VERSION = '1.0.0';
+interface LegacyMapConfigData {
+  version: string;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  baseLocation: {
+    lat: number;
+    lng: number;
+  };
+  customArea?: {
+    corners: [LatLngPoint, LatLngPoint, LatLngPoint, LatLngPoint];
+  };
+  metadata?: {
+    createdAt?: string;
+    name?: string;
+  };
+}
 
-  bounds: L.LatLngBounds;
+export class MapConfiguration {
+  private static readonly VERSION = '3.0.0';
+
+  area: L.LatLng[];
   baseLocation: L.LatLng;
   metadata: {
     createdAt: string;
     name?: string;
   };
 
-  constructor(bounds: L.LatLngBounds, baseLocation: L.LatLng, name?: string) {
-    this.bounds = bounds;
+  constructor(area: L.LatLng[], baseLocation: L.LatLng, name?: string) {
+    this.area = area;
     this.baseLocation = baseLocation;
     this.metadata = {
       createdAt: new Date().toISOString(),
@@ -41,8 +65,16 @@ export class MapConfiguration {
     this.validate();
   }
 
+  get bounds(): L.LatLngBounds {
+    return computeBoundingBox(this.area);
+  }
+
+  containsPoint(point: L.LatLng): boolean {
+    return pointInPolygon(point, this.area);
+  }
+
   private validate(): void {
-    if (!this.bounds.contains(this.baseLocation)) {
+    if (!this.containsPoint(this.baseLocation)) {
       throw new Error('Base location must be inside the map bounds');
     }
 
@@ -56,8 +88,9 @@ export class MapConfiguration {
   }
 
   getBoundsSizeKm(): { width: number; height: number } {
-    const sw = this.bounds.getSouthWest();
-    const ne = this.bounds.getNorthEast();
+    const bounds = this.bounds;
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
     const nw = L.latLng(ne.lat, sw.lng);
     const se = L.latLng(sw.lat, ne.lng);
 
@@ -80,7 +113,7 @@ export class MapConfiguration {
   }
 
   isValidTowerPosition(position: L.LatLng): boolean {
-    if (!this.bounds.contains(position)) {
+    if (!this.containsPoint(position)) {
       return false;
     }
 
@@ -95,11 +128,8 @@ export class MapConfiguration {
   toJSON(): MapConfigData {
     return {
       version: MapConfiguration.VERSION,
-      bounds: {
-        north: this.bounds.getNorth(),
-        south: this.bounds.getSouth(),
-        east: this.bounds.getEast(),
-        west: this.bounds.getWest(),
+      area: {
+        corners: this.area.map(c => ({ lat: c.lat, lng: c.lng })),
       },
       baseLocation: {
         lat: this.baseLocation.lat,
@@ -113,22 +143,49 @@ export class MapConfiguration {
     return JSON.stringify(this.toJSON());
   }
 
-  static fromJSON(data: MapConfigData): MapConfiguration {
-    const bounds = L.latLngBounds(
-      L.latLng(data.bounds.south, data.bounds.west),
-      L.latLng(data.bounds.north, data.bounds.east)
-    );
-
+  static fromJSON(data: MapConfigData | LegacyMapConfigData): MapConfiguration {
     const baseLocation = L.latLng(data.baseLocation.lat, data.baseLocation.lng);
 
-    const config = new MapConfiguration(bounds, baseLocation, data.metadata?.name);
+    let area: L.LatLng[];
+
+    if ('area' in data && data.area) {
+      area = data.area.corners.map(c => L.latLng(c.lat, c.lng));
+    } else {
+      const legacyData = data as LegacyMapConfigData;
+      if (legacyData.customArea) {
+        area = legacyData.customArea.corners.map(c => L.latLng(c.lat, c.lng));
+      } else {
+        const { north, south, east, west } = legacyData.bounds;
+        area = [
+          L.latLng(north, west),
+          L.latLng(north, east),
+          L.latLng(south, east),
+          L.latLng(south, west),
+        ];
+      }
+    }
+
+    const config = new MapConfiguration(area, baseLocation, data.metadata?.name);
     config.metadata.createdAt = data.metadata?.createdAt || config.metadata.createdAt;
 
     return config;
   }
 
   static fromString(jsonString: string): MapConfiguration {
-    const data = JSON.parse(jsonString) as MapConfigData;
+    const data = JSON.parse(jsonString) as MapConfigData | LegacyMapConfigData;
     return MapConfiguration.fromJSON(data);
+  }
+
+  static boundsToArea(bounds: L.LatLngBounds): L.LatLng[] {
+    const north = bounds.getNorth();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const west = bounds.getWest();
+    return [
+      L.latLng(north, west),
+      L.latLng(north, east),
+      L.latLng(south, east),
+      L.latLng(south, west),
+    ];
   }
 }

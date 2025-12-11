@@ -18,6 +18,7 @@ import { Crater } from './game/Crater';
 import { DeathEffect } from './game/DeathEffect';
 
 import { GAME_CONFIG } from './config';
+import { pointInPolygon } from './geometry';
 
 const DEFAULT_CENTER = GAME_CONFIG.MAP.DEFAULT_CENTER;
 const DEFAULT_ZOOM = GAME_CONFIG.MAP.DEFAULT_ZOOM;
@@ -132,7 +133,7 @@ class GameScene extends Phaser.Scene {
 
 
 
-  async loadRoadsFromOSM(bounds: L.LatLngBounds, baseLocation: L.LatLng | null, onProgress?: (message: string) => void) {
+  async loadRoadsFromOSM(bounds: L.LatLngBounds, config: MapConfiguration | null, onProgress?: (message: string) => void) {
     console.log('Loading roads from OSM...');
 
     try {
@@ -143,10 +144,10 @@ class GameScene extends Phaser.Scene {
       if (onProgress) onProgress('Building road network...');
       this.roadNetwork = new RoadNetwork(roads, bounds);
 
-      // Only calculate entries if we have a real base location
-      if (baseLocation) {
+      // Only calculate entries if we have a full config with area
+      if (config) {
         if (onProgress) onProgress('Finding entry points...');
-        this.entries = this.roadNetwork.findBoundaryEntries(baseLocation);
+        this.entries = this.roadNetwork.findBoundaryEntries(config.baseLocation, config.area);
 
         if (onProgress) onProgress('Initializing game...');
         this.waveManager.setEntries(this.entries);
@@ -174,21 +175,49 @@ class GameScene extends Phaser.Scene {
     if (!this.roadNetwork) return;
 
     const roads = this.roadNetwork.getAllRoads();
+    const area = this.towerManager?.getMapConfig()?.area;
 
     for (const road of roads) {
-      const points = road.points.map(p => this.converter.latLngToPixel(p));
-
-      if (points.length < 2) continue;
+      if (road.points.length < 2) continue;
 
       this.roadGraphics.lineStyle(GAME_CONFIG.ROADS.WIDTH, GAME_CONFIG.ROADS.COLOR, GAME_CONFIG.ROADS.OPACITY);
-      this.roadGraphics.beginPath();
-      this.roadGraphics.moveTo(points[0].x, points[0].y);
 
-      for (let i = 1; i < points.length; i++) {
-        this.roadGraphics.lineTo(points[i].x, points[i].y);
+      // Only draw segments inside the area polygon
+      if (area) {
+        let inPath = false;
+        for (let i = 0; i < road.points.length; i++) {
+          const point = road.points[i];
+          const isInside = pointInPolygon(point, area);
+          const screenPoint = this.converter.latLngToPixel(point);
+
+          if (isInside) {
+            if (!inPath) {
+              this.roadGraphics.beginPath();
+              this.roadGraphics.moveTo(screenPoint.x, screenPoint.y);
+              inPath = true;
+            } else {
+              this.roadGraphics.lineTo(screenPoint.x, screenPoint.y);
+            }
+          } else {
+            if (inPath) {
+              this.roadGraphics.strokePath();
+              inPath = false;
+            }
+          }
+        }
+        if (inPath) {
+          this.roadGraphics.strokePath();
+        }
+      } else {
+        // No config yet, draw all roads
+        const points = road.points.map(p => this.converter.latLngToPixel(p));
+        this.roadGraphics.beginPath();
+        this.roadGraphics.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          this.roadGraphics.lineTo(points[i].x, points[i].y);
+        }
+        this.roadGraphics.strokePath();
       }
-
-      this.roadGraphics.strokePath();
     }
   }
 
@@ -206,11 +235,11 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  recalculateEntries(baseLocation: L.LatLng) {
+  recalculateEntries(config: MapConfiguration) {
     if (!this.roadNetwork) return;
 
-    console.log('Recalculating entries for new base location:', baseLocation);
-    this.entries = this.roadNetwork.findBoundaryEntries(baseLocation);
+    console.log('Recalculating entries for base location:', config.baseLocation);
+    this.entries = this.roadNetwork.findBoundaryEntries(config.baseLocation, config.area);
     this.waveManager.setEntries(this.entries);
     this.renderEntries();
   }
@@ -423,9 +452,9 @@ class GameScene extends Phaser.Scene {
     this.towerManager.removeTowersInRadius(bombPos, radiusMeters);
     
     // 4. Recalculate paths
-    const baseLocation = this.towerManager.getMapConfig().baseLocation;
-    this.recalculateEntries(baseLocation); // This updates entries for new spawns
-    this.waveManager.recalculatePaths(this.roadNetwork, baseLocation); // This updates active enemies
+    const mapConfig = this.towerManager.getMapConfig();
+    this.recalculateEntries(mapConfig); // This updates entries for new spawns
+    this.waveManager.recalculatePaths(this.roadNetwork, mapConfig.baseLocation); // This updates active enemies
   }
 }
 
@@ -435,6 +464,8 @@ class UIManager {
   private leafletMap: L.Map;
 
   private selectBoundsBtn: HTMLButtonElement;
+  private selectCustomBtn: HTMLButtonElement;
+  private selectionHelp: HTMLElement;
   private placeBaseBtn: HTMLButtonElement;
   private shareBtn: HTMLButtonElement;
   private loadConfigBtn: HTMLButtonElement;
@@ -467,6 +498,8 @@ class UIManager {
     this.leafletMap = leafletMap;
 
     this.selectBoundsBtn = document.getElementById('selectBoundsBtn') as HTMLButtonElement;
+    this.selectCustomBtn = document.getElementById('selectCustomBtn') as HTMLButtonElement;
+    this.selectionHelp = document.getElementById('selection-help') as HTMLElement;
     this.placeBaseBtn = document.getElementById('placeBaseBtn') as HTMLButtonElement;
     this.shareBtn = document.getElementById('shareBtn') as HTMLButtonElement;
     this.loadConfigBtn = document.getElementById('loadConfigBtn') as HTMLButtonElement;
@@ -515,6 +548,17 @@ class UIManager {
       } else {
         this.clearGame();
         this.selector.startBoundsSelection();
+        this.selectionHelp.textContent = '1. Drag to select rectangle';
+      }
+    });
+
+    this.selectCustomBtn.addEventListener('click', () => {
+      if (this.selector.currentMode === 'clicking-corners') {
+        this.selector.cancelSelection();
+      } else {
+        this.clearGame();
+        this.selector.startCustomSelection();
+        this.selectionHelp.textContent = '1. Click corner 1/4';
       }
     });
 
@@ -555,7 +599,7 @@ class UIManager {
           '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
           '{"version":"1.0.0","bounds":{"north":37.81181790866923,"south":37.79261562380038,"east":-122.4483346939087,"west":-122.48781681060792},"baseLocation":{"lat":37.80106388711812,"lng":-122.47348308563234},"metadata":{"createdAt":"2025-12-11T07:09:56.855Z"}}',
           '{"version":"1.0.0","bounds":{"north":45.5813736524941,"south":45.560964773555256,"east":-122.91413784027101,"west":-122.9522466659546},"baseLocation":{"lat":45.56986263404587,"lng":-122.94156074523927},"metadata":{"createdAt":"2025-12-11T07:12:34.706Z"}}',
-          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"2.0.0","bounds":{"north":40.80003879242711,"south":40.765185905584424,"east":-73.94983291625978,"west":-73.98098945617677},"baseLocation":{"lat":40.778713077964106,"lng":-73.96837234497072},"metadata":{"createdAt":"2025-12-11T19:34:11.518Z"},"customArea":{"corners":[{"lat":40.80003879242711,"lng":-73.95790100097658},{"lat":40.79665834331317,"lng":-73.94983291625978},{"lat":40.765185905584424,"lng":-73.97309303283693},{"lat":40.768177728961916,"lng":-73.98098945617677}]}}',
           '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
           '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
           '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
@@ -577,7 +621,7 @@ class UIManager {
             if (loadingOverlay) loadingOverlay.classList.remove('hidden');
 
             try {
-              await this.gameScene.loadRoadsFromOSM(config.bounds, config.baseLocation, (message) => {
+              await this.gameScene.loadRoadsFromOSM(config.bounds, config, (message) => {
                 if (loadingText) loadingText.textContent = message;
               });
 
@@ -676,9 +720,10 @@ class UIManager {
       this.towerShopPanel.updateMoney(money);
       this.updateWavePreview();
 
-      // Disable Select Area once a wave has started
+      // Disable Select Area buttons once a wave has started
       if (wave > 0) {
         this.selectBoundsBtn.disabled = true;
+        this.selectCustomBtn.disabled = true;
       }
     });
 
@@ -707,6 +752,8 @@ class UIManager {
     this.wavePreview.classList.add('hidden');
     this.gameControls.classList.add('hidden');
     this.selectBoundsBtn.disabled = false;
+    this.selectCustomBtn.disabled = false;
+    this.selectionHelp.textContent = '1. Drag or click 4 corners';
   }
 
   private showGameOver(wave: number, kills: number, moneyEarned: number) {
@@ -754,7 +801,7 @@ class UIManager {
     if (loadingOverlay) loadingOverlay.classList.remove('hidden');
 
     try {
-      await this.gameScene.loadRoadsFromOSM(currentConfig.bounds, currentConfig.baseLocation, (message) => {
+      await this.gameScene.loadRoadsFromOSM(currentConfig.bounds, currentConfig, (message) => {
         if (loadingText) loadingText.textContent = message;
       });
 
@@ -858,19 +905,16 @@ class UIManager {
   onStateChange(state: SelectionState) {
     this.currentState = state;
 
-    // Enable place base button only if we have bounds but no config yet
+    // Enable place base button only if we have area but no config yet
     // Once base location is placed (config exists), lock the button
-    this.placeBaseBtn.disabled = !state.bounds || state.config !== null;
+    this.placeBaseBtn.disabled = !state.area || state.config !== null;
 
     // Enable share/start only if we have a full config
     this.shareBtn.disabled = !state.config;
     this.startWaveBtn.disabled = !state.config;
 
-    if (state.baseLocation) {
-      this.gameScene.recalculateEntries(state.baseLocation);
-    }
-
     if (state.config) {
+      this.gameScene.recalculateEntries(state.config);
       this.gameScene.setMapConfiguration(state.config);
       this.towerShopPanel.show();
       this.wavePreview.classList.remove('hidden');
@@ -978,8 +1022,10 @@ phaserGame.events.once('ready', () => {
 
   gameScene.scene.restart({ converter, leafletMap });
 
+  const selectionHelp = document.getElementById('selection-help') as HTMLElement;
+
   const mapSelector = new MapSelector(
-    leafletMap, 
+    leafletMap,
     (state) => {
       uiManager.onStateChange(state);
     },
@@ -1002,6 +1048,14 @@ phaserGame.events.once('ready', () => {
     // validateBaseLocation: Check if point is on road
     (point) => {
       return gameScene.isPointOnRoad(point);
+    },
+    // onCornerCountChange: Update help text during custom selection
+    (count) => {
+      if (count < 4) {
+        selectionHelp.textContent = `1. Click corner ${count + 1}/4`;
+      } else {
+        selectionHelp.textContent = '1. Drag or click 4 corners';
+      }
     }
   );
 

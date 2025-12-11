@@ -76,6 +76,17 @@ body {
   gap: 10px;
 }
 
+.selection-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.selection-buttons button {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 0.5em 0.8em;
+}
+
 .help-text {
   font-size: 0.8rem;
   color: #888;
