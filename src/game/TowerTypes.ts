@@ -229,7 +229,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
   } as HelicopterConfig,
   BOMB: {
     name: 'Bomb',
-    baseCost: 1000,
+    baseCost: 400,
     color: 0xff0000,
     baseStats: {
       damage: 5000,

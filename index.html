@@ -1,11 +1,14 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Maps Tower Defense</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
   </head>
   <body>
     <div id="app-container">
@@ -14,7 +17,7 @@
         <div class="controls">
           <button id="selectBoundsBtn">Select Area</button>
           <p class="help-text">1. Drag to select map area</p>
-          
+
           <button id="placeBaseBtn" disabled>Place Base Location</button>
           <p class="help-text">2. Click a road to place base</p>
 
@@ -29,16 +32,16 @@
             <button id="speedBtn">1x</button>
           </div>
           <p class="help-text">3. Defend!</p>
-          
-          <hr>
-          
+
+          <hr />
+
           <button id="shareBtn" disabled>Share Map</button>
           <button id="loadConfigBtn">Load Map</button>
         </div>
-        
+
         <div id="stats-panel">
           <div class="stat-row">Lives: <span id="livesDisplay">10</span></div>
-          <div class="stat-row">Money: <span id="moneyDisplay">100</span></div>
+          <div class="stat-row">Money: <span id="moneyDisplay">200</span></div>
           <div class="stat-row">Wave: <span id="waveDisplay">0</span></div>
         </div>
 
@@ -47,7 +50,7 @@
           <div id="towerInfoContent"></div>
         </div>
       </div>
-      
+
       <div id="main-content">
         <div id="map-container">
           <div id="map"></div>
@@ -68,7 +71,10 @@
         <span class="modal-close">&times;</span>
         <h2 id="modalTitle">Map Configuration</h2>
         <div id="modalBody">
-          <textarea id="configInput" placeholder="Paste map configuration JSON here..."></textarea>
+          <textarea
+            id="configInput"
+            placeholder="Paste map configuration JSON here..."
+          ></textarea>
           <div class="modal-actions">
             <button id="modalConfirm">Load</button>
             <button id="modalCancel">Cancel</button>
@@ -100,7 +106,9 @@
           </div>
         </div>
         <div class="game-over-buttons">
-          <button id="replay-map-btn" class="replay-map-btn">Replay Same Map</button>
+          <button id="replay-map-btn" class="replay-map-btn">
+            Replay Same Map
+          </button>
           <button id="play-again-btn" class="play-again-btn">New Map</button>
         </div>
       </div>
