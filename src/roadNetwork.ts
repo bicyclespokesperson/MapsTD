@@ -285,6 +285,80 @@ export class RoutingGraph {
   private distSq(p1: L.LatLng, p2: L.LatLng): number {
     return (p1.lat - p2.lat) * (p1.lat - p2.lat) + (p1.lng - p2.lng) * (p1.lng - p2.lng);
   }
+
+  getNodesInRadius(center: L.LatLng, radiusMeters: number): number[] {
+    const nodesToRemove: number[] = [];
+    // Convert radius to approximate degrees
+    const radiusDegrees = radiusMeters / 111000;
+    const radiusSq = radiusDegrees * radiusDegrees;
+
+    for (const node of this.nodes.values()) {
+      const dSq = this.distSq(center, node.latLng);
+      if (dSq <= radiusSq) {
+        nodesToRemove.push(node.id);
+      }
+    }
+    return nodesToRemove;
+  }
+
+  removeNode(nodeId: number) {
+    const node = this.nodes.get(nodeId);
+    if (!node) return;
+
+    // Remove edges to this node from neighbors
+    for (const neighborId of node.neighbors.keys()) {
+      const neighbor = this.nodes.get(neighborId);
+      if (neighbor) {
+        neighbor.neighbors.delete(nodeId);
+      }
+    }
+
+    this.nodes.delete(nodeId);
+  }
+
+  checkConnectivity(startPoints: L.LatLng[], endPoint: L.LatLng, ignoredNodeIds: Set<number>): boolean {
+    const endNodeId = this.findClosestNode(endPoint);
+    if (endNodeId === null || ignoredNodeIds.has(endNodeId)) return false;
+
+    // We only need to find if AT LEAST ONE start point can reach the end point.
+    // Optimization: Run BFS backwards from endNodeId until we hit any start node's closest graph node.
+    
+    // 1. Map start points to closest valid graph nodes
+    const validStartNodeIds = new Set<number>();
+    for (const p of startPoints) {
+      const id = this.findClosestNode(p);
+      if (id !== null && !ignoredNodeIds.has(id)) {
+        validStartNodeIds.add(id);
+      }
+    }
+
+    if (validStartNodeIds.size === 0) return false;
+
+    // 2. BFS from endNodeId
+    const queue: number[] = [endNodeId];
+    const visited = new Set<number>();
+    visited.add(endNodeId);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      
+      if (validStartNodeIds.has(currentId)) {
+        return true; // Found a path!
+      }
+
+      const node = this.nodes.get(currentId);
+      if (!node) continue;
+
+      for (const neighborId of node.neighbors.keys()) {
+        if (!visited.has(neighborId) && !ignoredNodeIds.has(neighborId)) {
+          visited.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+
+    return false;
+  }
 }
 
 export class RoadNetwork {
@@ -485,5 +559,36 @@ export class RoadNetwork {
 
   private distSq(p1: L.LatLng, p2: L.LatLng): number {
     return (p1.lat - p2.lat) * (p1.lat - p2.lat) + (p1.lng - p2.lng) * (p1.lng - p2.lng);
+  }
+
+  simulateNodeRemoval(center: L.LatLng, radiusMeters: number, baseLocation: L.LatLng, entryPoints: BoundaryEntry[]): boolean {
+    const nodesToRemove = this.graph.getNodesInRadius(center, radiusMeters);
+    if (nodesToRemove.length === 0) return true; // No damage to graph, so safe
+
+    const ignoredNodes = new Set<number>(nodesToRemove);
+    const startPoints = entryPoints.map(e => e.position);
+
+    return this.graph.checkConnectivity(startPoints, baseLocation, ignoredNodes);
+  }
+
+  removeRoadsInRadius(center: L.LatLng, radiusMeters: number): void {
+    const nodesToRemove = this.graph.getNodesInRadius(center, radiusMeters);
+    for (const nodeId of nodesToRemove) {
+      this.graph.removeNode(nodeId);
+    }
+  }
+
+  findPath(start: L.LatLng, end: L.LatLng): L.LatLng[] | null {
+    const startNodeId = this.graph.findClosestNode(start);
+    const endNodeId = this.graph.findClosestNode(end);
+
+    if (startNodeId === null || endNodeId === null) return null;
+
+    const path = this.graph.findShortestPath(startNodeId, endNodeId);
+    if (path) {
+        // Prepend start and append end for accuracy
+        return [start, ...path, end];
+    }
+    return null;
   }
 }

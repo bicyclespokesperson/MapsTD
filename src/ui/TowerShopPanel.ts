@@ -19,7 +19,7 @@ export class TowerShopPanel {
   }
 
   private createTowerCards(): void {
-    const towerTypes: TowerType[] = ['GUNNER', 'SNIPER', 'MINIGUN', 'CANNON', 'HELICOPTER'];
+    const towerTypes: TowerType[] = ['GUNNER', 'SNIPER', 'MINIGUN', 'CANNON', 'HELICOPTER', 'BOMB'];
 
     for (const type of towerTypes) {
       const config = TOWER_CONFIGS[type];
@@ -40,11 +40,20 @@ export class TowerShopPanel {
 
       const stats = document.createElement('div');
       stats.className = 'tower-card-stats';
-      stats.innerHTML = `
-        DMG: ${config.baseStats.damage}<br>
-        RNG: ${config.baseStats.range}<br>
-        ROF: ${(1000 / config.baseStats.fireRateMs).toFixed(1)}/s
-      `;
+      
+      if (type === 'BOMB') {
+         stats.innerHTML = `
+            DMG: ${config.baseStats.damage}<br>
+            Radius: ${config.baseStats.range}m<br>
+            One-time Usage
+          `;
+      } else {
+          stats.innerHTML = `
+            DMG: ${config.baseStats.damage}<br>
+            RNG: ${config.baseStats.range}<br>
+            ROF: ${(1000 / config.baseStats.fireRateMs).toFixed(1)}/s
+          `;
+      }
 
       card.appendChild(icon);
       card.appendChild(name);

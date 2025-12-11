@@ -1,4 +1,4 @@
-export type TowerType = 'GUNNER' | 'SNIPER' | 'MINIGUN' | 'CANNON' | 'HELICOPTER';
+export type TowerType = 'GUNNER' | 'SNIPER' | 'MINIGUN' | 'CANNON' | 'HELICOPTER' | 'BOMB';
 
 export type TargetingMode = 'FIRST' | 'LAST' | 'CLOSEST' | 'STRONGEST';
 
@@ -24,6 +24,10 @@ export interface HelicopterConfig extends TowerConfig {
   moveSpeed: number;    // Maximum flight speed
   turnSpeed: number;    // Rotation speed in degrees per second
   acceleration: number; // Acceleration in pixels/sec^2
+}
+
+export interface BombConfig extends TowerConfig {
+  fuseTime: number; // ms before explosion
 }
 
 export interface UpgradeTier {
@@ -223,6 +227,19 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
       },
     ],
   } as HelicopterConfig,
+  BOMB: {
+    name: 'Bomb',
+    baseCost: 1000,
+    color: 0xff0000,
+    baseStats: {
+      damage: 5000,
+      range: 60, // Blast radius in meters
+      fireRateMs: 0,
+      projectileSpeed: 0,
+    },
+    fuseTime: 3000,
+    upgrades: [],
+  } as BombConfig,
 };
 
 export const TARGETING_LABELS: Record<TargetingMode, string> = {
@@ -235,3 +252,4 @@ export const TARGETING_LABELS: Record<TargetingMode, string> = {
 export const ECONOMY = {
   SELL_REFUND_PERCENT: 0.7,
 };
+

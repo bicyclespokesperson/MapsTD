@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { BoundaryEntry } from '../roadNetwork';
+import * as L from 'leaflet';
+import { BoundaryEntry, RoadNetwork } from '../roadNetwork';
 import { Enemy } from './Enemy';
 import { CoordinateConverter } from '../coordinateConverter';
 import { EnemyType, ENEMY_CONFIGS } from './EnemyTypes';
@@ -54,6 +55,10 @@ export class WaveManager {
 
   isPaused(): boolean {
     return this._isPaused;
+  }
+
+  isWaveInProgress(): boolean {
+    return this.isWaveActive;
   }
 
   private dispatchSpeedUpdate() {
@@ -319,5 +324,27 @@ export class WaveManager {
     }
 
     return result;
+  }
+
+  recalculatePaths(roadNetwork: RoadNetwork, baseLocation: L.LatLng) {
+    if (!roadNetwork) return;
+
+    // Use a copy of the array because we might modify it (destroying enemies)
+    const enemies = [...this.activeEnemies];
+
+    for (const enemy of enemies) {
+        if (enemy.isDead()) continue;
+        
+        const currentPos = enemy.getPosition();
+        const newPath = roadNetwork.findPath(currentPos, baseLocation);
+        
+        if (newPath) {
+            enemy.setPath(newPath);
+        } else {
+             // Trapped - destroy immediately
+            console.log('Enemy trapped by road destruction!');
+            enemy.takeDamage(999999);
+        }
+    }
   }
 }

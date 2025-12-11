@@ -11,8 +11,9 @@ import { TowerManager } from './game/TowerManager';
 import { Projectile } from './game/Projectile';
 import { TowerShopPanel } from './ui/TowerShopPanel';
 import { TowerInfoPanel } from './ui/TowerInfoPanel';
-import { TowerType, TOWER_CONFIGS, HelicopterConfig } from './game/TowerTypes';
+import { TowerType, TOWER_CONFIGS, HelicopterConfig, BombConfig } from './game/TowerTypes';
 import { Tower } from './game/Tower';
+import { Bomb } from './game/Bomb';
 import { DeathEffect } from './game/DeathEffect';
 
 import { GAME_CONFIG } from './config';
@@ -30,6 +31,7 @@ class GameScene extends Phaser.Scene {
   private entries: BoundaryEntry[] = [];
   private projectiles: Projectile[] = [];
   private deathEffects: DeathEffect[] = [];
+  private bombs: Bomb[] = [];
 
   private placementMode: boolean = false;
   private placementType: TowerType | null = null;
@@ -94,6 +96,25 @@ class GameScene extends Phaser.Scene {
       for (let i = this.deathEffects.length - 1; i >= 0; i--) {
         if (!this.deathEffects[i].update(adjustedDelta)) {
           this.deathEffects.splice(i, 1);
+        }
+      }
+
+      const isWaveActive = this.waveManager.isWaveInProgress();
+      for (let i = this.bombs.length - 1; i >= 0; i--) {
+        const bomb = this.bombs[i];
+        if (!bomb.active) {
+            this.bombs.splice(i, 1);
+        } else {
+            // Bombs update position based on raw delta (panning), but timer based on adjusted delta
+            // Wait, timer should be based on adjustedDelta to respect pause/speed?
+            // User said "wait until round starts".
+            // Let's pass adjustedDelta for timer. Panning should happen regardless of pause.
+            // Oh right, update(delta) is usually adjustedDelta in my code.
+            // But for panning I need real time if map moves while paused.
+            // However, map panning usually doesn't happen continuously in update loop, it happens on events.
+            // But setPosition needs to run in update loop to stick to map.
+            // So I should call bomb.update every frame.
+            bomb.update(adjustedDelta, isWaveActive);
         }
       }
     }
@@ -209,7 +230,23 @@ class GameScene extends Phaser.Scene {
     if (!this.placementMode || !this.placementType || !this.towerManager) return;
 
     this.previewPosition = latLng;
-    this.isValidPlacement = this.towerManager.isValidPlacement(latLng);
+    this.previewPosition = latLng;
+    this.isValidPlacement = this.towerManager.isValidPlacement(latLng, this.placementType);
+
+    if (this.isValidPlacement && this.placementType === 'BOMB' && this.roadNetwork && this.towerManager) {
+        const config = TOWER_CONFIGS.BOMB as BombConfig;
+        const baseLocation = this.towerManager.getMapConfig().baseLocation;
+        // Check connectivity
+        const safe = this.roadNetwork.simulateNodeRemoval(
+            latLng, 
+            config.baseStats.range, 
+            baseLocation, 
+            this.entries
+        );
+        if (!safe) {
+            this.isValidPlacement = false;
+        }
+    }
   }
 
   private renderPlacementPreview() {
@@ -263,10 +300,15 @@ class GameScene extends Phaser.Scene {
       return false;
     }
 
-    const tower = this.towerManager.addTower(this.placementType, this.previewPosition);
-    if (tower) {
+    const onExplode = (bomb: Bomb) => this.handleBombExplosion(bomb);
+
+    const result = this.towerManager.addTower(this.placementType, this.previewPosition, onExplode);
+    if (result) {
+      if (result instanceof Bomb) {
+          this.bombs.push(result);
+      }
       this.waveManager.spendMoney(config.baseCost);
-      console.log('Tower placed!');
+      console.log('Tower/Bomb placed!');
       this.exitPlacementMode();
       return true;
     }
@@ -307,6 +349,11 @@ class GameScene extends Phaser.Scene {
     }
     this.deathEffects = [];
 
+    for (const bomb of this.bombs) {
+      bomb.destroy();
+    }
+    this.bombs = [];
+
     this.roadNetwork = null;
     this.entries = [];
 
@@ -334,6 +381,36 @@ class GameScene extends Phaser.Scene {
 
     this.waveManager.reset();
     this.waveManager.setEntries(this.entries);
+  }
+
+  private handleBombExplosion(bomb: Bomb) {
+    if (!this.roadNetwork || !this.towerManager) return;
+    
+    const config = TOWER_CONFIGS.BOMB as BombConfig;
+    const radiusMeters = config.baseStats.range;
+    const bombPos = L.latLng(bomb.geoPosition);
+    
+    // 1. Remove roads
+    this.roadNetwork.removeRoadsInRadius(bombPos, radiusMeters);
+    this.renderRoads();
+    
+    // 2. Damage enemies (using explicit loop to not miss any)
+    const enemies = this.waveManager.getActiveEnemies();
+    for (const enemy of enemies) {
+        if (enemy.isDead()) continue;
+        const dist = this.converter.distanceInMeters(bombPos, enemy.getPosition());
+        if (dist <= radiusMeters) {
+            enemy.takeDamage(config.baseStats.damage);
+        }
+    }
+    
+    // 3. Destroy towers
+    this.towerManager.removeTowersInRadius(bombPos, radiusMeters);
+    
+    // 4. Recalculate paths
+    const baseLocation = this.towerManager.getMapConfig().baseLocation;
+    this.recalculateEntries(baseLocation); // This updates entries for new spawns
+    this.waveManager.recalculatePaths(this.roadNetwork, baseLocation); // This updates active enemies
   }
 }
 

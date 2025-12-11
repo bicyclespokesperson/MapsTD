@@ -28,7 +28,7 @@ export const GAME_CONFIG = {
     WIDTH: 3,
   },
   ECONOMY: {
-    STARTING_MONEY: 200,
+    STARTING_MONEY: 5000,
     STARTING_LIVES: 10,
   },
 };

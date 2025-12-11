@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import * as L from 'leaflet';
 import { Tower } from './Tower';
 import { HelicopterTower } from './HelicopterTower';
+import { Bomb } from './Bomb';
 import { Enemy } from './Enemy';
-import { TowerType } from './TowerTypes';
+import { TowerType, BombConfig, TOWER_CONFIGS } from './TowerTypes';
 import { CoordinateConverter } from '../coordinateConverter';
 import { MapConfiguration } from '../mapConfiguration';
 
@@ -29,12 +30,26 @@ export class TowerManager {
     this.mapConfig = mapConfig;
   }
 
-  public addTower(type: TowerType, geoPosition: L.LatLng): AnyTower | null {
+  public addTower(type: TowerType, geoPosition: L.LatLng, onBombExplode?: (bomb: Bomb) => void): AnyTower | Bomb | null {
     if (!this.isValidPlacement(geoPosition, type)) {
       return null;
     }
 
     const screenPos = this.converter.latLngToPixel(geoPosition);
+    
+    if (type === 'BOMB') {
+        // Bomb is special - it's not added to self.towers list
+        const bomb = new Bomb(
+            this.scene, 
+            screenPos.x, 
+            screenPos.y, 
+            geoPosition, 
+            this.converter, 
+            onBombExplode || (() => {})
+        );
+        return bomb;
+    }
+
     let tower: AnyTower;
     
     if (type === 'HELICOPTER') {
@@ -78,7 +93,13 @@ export class TowerManager {
       if (!this.mapConfig.bounds.contains(geoPosition)) {
         return false;
       }
+    } else if (towerType === 'BOMB') {
+       // Bombs can be placed anywhere within bounds
+       if (!this.mapConfig.bounds.contains(geoPosition)) {
+        return false;
+      }
     } else {
+      // Normal towers must not be on road
       if (!this.mapConfig.isValidTowerPosition(geoPosition)) {
         return false;
       }
@@ -169,5 +190,23 @@ export class TowerManager {
       tower.destroy();
     }
     this.towers = [];
+  }
+
+  public removeTowersInRadius(center: L.LatLng, radiusMeters: number): void {
+    // We need to iterate backwards since we might remove items
+    for (let i = this.towers.length - 1; i >= 0; i--) {
+        const tower = this.towers[i];
+        const dist = this.converter.distanceInMeters(center, L.latLng(tower.geoPosition));
+        
+        if (dist <= radiusMeters) {
+            this.removeTower(tower);
+            // Visual effect for tower destruction?
+            // For now just removing it is fine (maybe add small explosion later)
+        }
+    }
+  }
+
+  public getMapConfig(): MapConfiguration {
+    return this.mapConfig;
   }
 }

@@ -152,4 +152,20 @@ export class Enemy extends Phaser.GameObjects.Container {
   public getReward(): number {
     return this.reward;
   }
+
+  public setPath(newPath: L.LatLng[]) {
+    this.path = {
+      roadId: -1, // Synthetic path
+      waypoints: newPath,
+      highway: 'unknown'
+    };
+    this.currentWaypointIndex = 0;
+    // We assume the first point of the new path is the current position (or very close to it)
+    // So we don't force positionLatLng to be path[0] to avoid snapping, 
+    // but the movement logic will move towards path[1].
+  }
+
+  public getPosition(): L.LatLng {
+    return this.positionLatLng;
+  }
 }
