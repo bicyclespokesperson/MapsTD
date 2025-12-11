@@ -94,10 +94,12 @@ export class TowerManager {
         return false;
       }
     } else if (towerType === 'BOMB') {
-       // Bombs can be placed anywhere within bounds
+       // Bombs can be placed anywhere within bounds (including over towers!)
        if (!this.mapConfig.bounds.contains(geoPosition)) {
         return false;
       }
+      // Skip tower spacing check for bombs - they can blow up towers!
+      return true;
     } else {
       // Normal towers must not be on road
       if (!this.mapConfig.isValidTowerPosition(geoPosition)) {
