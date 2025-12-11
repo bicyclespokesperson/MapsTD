@@ -518,6 +518,9 @@ class UIManager {
       }
     });
 
+    let lastKey = '';
+    let lastKeyTime = 0;
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (this.selector.currentMode !== 'none') {
@@ -526,38 +529,66 @@ class UIManager {
           this.towerShopPanel.deselectTower();
         }
       }
-      
-      // Press 'L' to load test map for quick testing
+
+      // Press 'L1' through 'L9' to load test maps for quick testing
       // Only works when no game is in progress (wave 0)
-      if (e.key === 'l' || e.key === 'L') {
+      const now = Date.now();
+      if ((e.key === 'l' || e.key === 'L') && now - lastKeyTime < 1000) {
+        // Reset for next sequence
+        lastKey = '';
+        lastKeyTime = 0;
+      } else if (e.key === 'l' || e.key === 'L') {
+        lastKey = 'l';
+        lastKeyTime = now;
+      } else if (lastKey === 'l' && e.key >= '1' && e.key <= '9' && now - lastKeyTime < 1000) {
+        const slotNumber = parseInt(e.key);
         const currentWave = this.gameScene.waveManager.getStats().wave;
+
         if (currentWave > 0) {
           console.log('Cannot load test map - game already in progress');
+          lastKey = '';
           return;
         }
-        const testConfig = '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}';
-        
+
+        // QA test map configurations
+        const testConfigs = [
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.81181790866923,"south":37.79261562380038,"east":-122.4483346939087,"west":-122.48781681060792},"baseLocation":{"lat":37.80106388711812,"lng":-122.47348308563234},"metadata":{"createdAt":"2025-12-11T07:09:56.855Z"}}',
+          '{"version":"1.0.0","bounds":{"north":45.5813736524941,"south":45.560964773555256,"east":-122.91413784027101,"west":-122.9522466659546},"baseLocation":{"lat":45.56986263404587,"lng":-122.94156074523927},"metadata":{"createdAt":"2025-12-11T07:12:34.706Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}',
+          '{"version":"1.0.0","bounds":{"north":37.83378257085255,"south":37.805664337530864,"east":-122.35688209533693,"west":-122.38331794738771},"baseLocation":{"lat":37.82604634846577,"lng":-122.37061500549318},"metadata":{"createdAt":"2025-12-10T19:19:02.712Z"}}'
+        ];
+
+        const testConfig = testConfigs[slotNumber - 1];
+
         (async () => {
           try {
             const config = MapConfiguration.fromString(testConfig);
             this.clearGame();
             this.selector.loadConfiguration(config);
-            
+
             // Load roads for the configuration
             const loadingOverlay = document.getElementById('loading-overlay');
             const loadingText = document.getElementById('loading-text');
             if (loadingOverlay) loadingOverlay.classList.remove('hidden');
-            
+
             try {
               await this.gameScene.loadRoadsFromOSM(config.bounds, config.baseLocation, (message) => {
                 if (loadingText) loadingText.textContent = message;
               });
 
-              // Give QA money for testing
-              const qaBonus = GAME_CONFIG.ECONOMY.QA_STARTING_MONEY - GAME_CONFIG.ECONOMY.STARTING_MONEY;
-              this.gameScene.waveManager.addMoney(qaBonus);
-
-              console.log('Test map loaded via L key with QA money:', GAME_CONFIG.ECONOMY.QA_STARTING_MONEY);
+              // Only give QA money for slot 1
+              if (slotNumber === 1) {
+                const qaBonus = GAME_CONFIG.ECONOMY.QA_STARTING_MONEY - GAME_CONFIG.ECONOMY.STARTING_MONEY;
+                this.gameScene.waveManager.addMoney(qaBonus);
+                console.log(`Test map ${slotNumber} loaded with QA money:`, GAME_CONFIG.ECONOMY.QA_STARTING_MONEY);
+              } else {
+                console.log(`Test map ${slotNumber} loaded with normal starting money:`, GAME_CONFIG.ECONOMY.STARTING_MONEY);
+              }
             } finally {
               if (loadingOverlay) loadingOverlay.classList.add('hidden');
               if (loadingText) loadingText.textContent = 'Loading Map Data...';
@@ -566,6 +597,9 @@ class UIManager {
             console.error('Failed to load test map:', error);
           }
         })();
+
+        lastKey = '';
+        lastKeyTime = 0;
       }
     });
 
@@ -577,9 +611,22 @@ class UIManager {
       }
     });
 
-    this.shareBtn.addEventListener('click', () => {
+    this.shareBtn.addEventListener('click', async () => {
       if (this.currentState?.config) {
-        this.showShareModal(this.currentState.config);
+        try {
+          await navigator.clipboard.writeText(this.currentState.config.toString());
+          // Show brief success notification
+          const originalText = this.shareBtn.textContent;
+          this.shareBtn.textContent = 'Copied!';
+          this.shareBtn.disabled = true;
+          setTimeout(() => {
+            this.shareBtn.textContent = originalText;
+            this.shareBtn.disabled = false;
+          }, 2000);
+        } catch (error) {
+          console.error('Failed to copy to clipboard:', error);
+          alert('Failed to copy to clipboard. Please try again.');
+        }
       }
     });
 
@@ -830,20 +877,6 @@ class UIManager {
       this.gameControls.classList.remove('hidden');
       this.updateWavePreview();
     }
-  }
-
-  private showShareModal(config: MapConfiguration) {
-    this.modalTitle.textContent = 'Share Map Configuration';
-    this.configInput.value = config.toString();
-    this.configInput.readOnly = true;
-    this.modalConfirm.textContent = 'Copy to Clipboard';
-    this.modalConfirm.onclick = () => {
-      navigator.clipboard.writeText(this.configInput.value);
-      alert('Copied to clipboard!');
-      this.closeModal();
-    };
-    this.modal.classList.add('active');
-    this.configInput.select();
   }
 
   private showLoadModal() {
