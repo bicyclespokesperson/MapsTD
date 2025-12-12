@@ -9,16 +9,19 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
-    <script type="module" crossorigin src="/MapsTD/assets/index-Bm7X2TZb.js"></script>
-    <link rel="stylesheet" crossorigin href="/MapsTD/assets/index-DjYO0mKl.css">
+    <script type="module" crossorigin src="/MapsTD/assets/index-DxeUihqh.js"></script>
+    <link rel="stylesheet" crossorigin href="/MapsTD/assets/index-D-v_FuN5.css">
   </head>
   <body>
     <div id="app-container">
       <div id="sidebar">
         <h1>Maps Tower Defense</h1>
         <div class="controls">
-          <button id="selectBoundsBtn">Select Area</button>
-          <p class="help-text">1. Drag to select map area</p>
+          <div class="selection-buttons">
+            <button id="selectBoundsBtn">Select Rectangle</button>
+            <button id="selectCustomBtn">Select Custom</button>
+          </div>
+          <p id="selection-help" class="help-text">1. Drag or click 4 corners</p>
 
           <button id="placeBaseBtn" disabled>Place Base Location</button>
           <p class="help-text">2. Click a road to place base</p>
@@ -61,6 +64,10 @@
             <button class="layer-btn active" data-layer="map">Map</button>
             <button class="layer-btn" data-layer="satellite">Satellite</button>
           </div>
+          <label id="road-toggle" class="toggle-label hidden">
+            <input type="checkbox" id="showRoadsCheckbox" />
+            <span>Show Roads</span>
+          </label>
         </div>
         <div id="tower-shop-panel" class="hidden">
           <div id="tower-cards"></div>
