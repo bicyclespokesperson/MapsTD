@@ -41,6 +41,7 @@ class GameScene extends Phaser.Scene {
   private previewGraphics!: Phaser.GameObjects.Graphics;
   private previewPosition: L.LatLng | null = null;
   private isValidPlacement: boolean = false;
+  private showRoads: boolean = false;
 
   public waveManager!: WaveManager;
   public towerManager: TowerManager | null = null;
@@ -177,10 +178,13 @@ class GameScene extends Phaser.Scene {
     const roads = this.roadNetwork.getAllRoads();
     const area = this.towerManager?.getMapConfig()?.area;
 
+    const color = this.showRoads ? GAME_CONFIG.ROADS.COLOR_VISIBLE : GAME_CONFIG.ROADS.COLOR_HIDDEN;
+    const opacity = this.showRoads ? GAME_CONFIG.ROADS.OPACITY_VISIBLE : GAME_CONFIG.ROADS.OPACITY_HIDDEN;
+
     for (const road of roads) {
       if (road.points.length < 2) continue;
 
-      this.roadGraphics.lineStyle(GAME_CONFIG.ROADS.WIDTH, GAME_CONFIG.ROADS.COLOR, GAME_CONFIG.ROADS.OPACITY);
+      this.roadGraphics.lineStyle(GAME_CONFIG.ROADS.WIDTH, color, opacity);
 
       // Only draw segments inside the area polygon
       if (area) {
@@ -219,6 +223,10 @@ class GameScene extends Phaser.Scene {
         this.roadGraphics.strokePath();
       }
     }
+  }
+
+  setShowRoads(visible: boolean) {
+    this.showRoads = visible;
   }
 
   private renderEntries() {
@@ -492,6 +500,9 @@ class UIManager {
   private towerShopPanel: TowerShopPanel;
   private towerInfoPanel: TowerInfoPanel;
 
+  private roadToggle: HTMLElement;
+  private showRoadsCheckbox: HTMLInputElement;
+
   constructor(selector: MapSelector, gameScene: GameScene, leafletMap: L.Map) {
     this.selector = selector;
     this.gameScene = gameScene;
@@ -514,13 +525,16 @@ class UIManager {
     this.modalConfirm = document.getElementById('modalConfirm') as HTMLButtonElement;
     this.modalCancel = document.getElementById('modalCancel') as HTMLButtonElement;
     this.modalClose = document.querySelector('.modal-close') as HTMLElement;
-    
+
     this.livesDisplay = document.getElementById('livesDisplay') as HTMLElement;
     this.moneyDisplay = document.getElementById('moneyDisplay') as HTMLElement;
     this.waveDisplay = document.getElementById('waveDisplay') as HTMLElement;
 
     this.wavePreview = document.getElementById('wave-preview') as HTMLElement;
     this.wavePreviewContent = document.getElementById('wave-preview-content') as HTMLElement;
+
+    this.roadToggle = document.getElementById('road-toggle') as HTMLElement;
+    this.showRoadsCheckbox = document.getElementById('showRoadsCheckbox') as HTMLInputElement;
 
     this.towerShopPanel = new TowerShopPanel((type) => {
       if (type) {
@@ -560,6 +574,10 @@ class UIManager {
         this.selector.startCustomSelection();
         this.selectionHelp.textContent = '1. Click corner 1/4';
       }
+    });
+
+    this.showRoadsCheckbox.addEventListener('change', () => {
+      this.gameScene.setShowRoads(this.showRoadsCheckbox.checked);
     });
 
     let lastKey = '';
@@ -751,6 +769,9 @@ class UIManager {
     this.towerShopPanel.hide();
     this.wavePreview.classList.add('hidden');
     this.gameControls.classList.add('hidden');
+    this.roadToggle.classList.add('hidden');
+    this.showRoadsCheckbox.checked = false;
+    this.gameScene.setShowRoads(false);
     this.selectBoundsBtn.disabled = false;
     this.selectCustomBtn.disabled = false;
     this.selectionHelp.textContent = '1. Drag or click 4 corners';
@@ -810,6 +831,7 @@ class UIManager {
       this.towerShopPanel.show();
       this.wavePreview.classList.remove('hidden');
       this.gameControls.classList.remove('hidden');
+      this.roadToggle.classList.remove('hidden');
       this.updateWavePreview();
     } catch (error) {
       console.error('Failed to reload map:', error);
@@ -919,6 +941,7 @@ class UIManager {
       this.towerShopPanel.show();
       this.wavePreview.classList.remove('hidden');
       this.gameControls.classList.remove('hidden');
+      this.roadToggle.classList.remove('hidden');
       this.updateWavePreview();
     }
   }

@@ -656,3 +656,42 @@ button:disabled {
 .layer-btn.active:hover {
   background: #5258d4;
 }
+
+/* Road Toggle */
+#road-toggle {
+  position: absolute;
+  bottom: 20px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+#road-toggle.hidden {
+  display: none;
+}
+
+#road-toggle:hover {
+  background: #f0f0f0;
+}
+
+#road-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+#tower-shop-panel:not(.hidden) ~ #map-container #road-toggle,
+#main-content:has(#tower-shop-panel:not(.hidden)) #road-toggle {
+  bottom: 170px;
+}
