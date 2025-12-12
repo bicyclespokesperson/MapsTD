@@ -133,7 +133,7 @@ class GameScene extends Phaser.Scene {
 
 
 
-  async loadRoadsFromOSM(bounds: L.LatLngBounds, config: MapConfiguration | null, onProgress?: (message: string) => void) {
+  async loadRoadsFromOSM(bounds: L.LatLngBounds, config: MapConfiguration | null, onProgress?: (message: string) => void, area?: L.LatLng[]) {
     console.log('Loading roads from OSM...');
 
     try {
@@ -143,7 +143,9 @@ class GameScene extends Phaser.Scene {
 
       if (onProgress) onProgress('Building road network...');
       // Pass area to filter roads to only those within the selected area
-      this.roadNetwork = new RoadNetwork(roads, bounds, config?.area);
+      // Use config.area if available, otherwise use the explicit area parameter
+      const filterArea = config?.area ?? area;
+      this.roadNetwork = new RoadNetwork(roads, bounds, filterArea);
 
       // Only calculate entries if we have a full config with area
       if (config) {
@@ -1032,16 +1034,16 @@ phaserGame.events.once('ready', () => {
       uiManager.onStateChange(state);
     },
     // onBoundsSelected: Auto-load roads
-    async (bounds) => {
+    async (bounds, area) => {
       const loadingOverlay = document.getElementById('loading-overlay');
       const loadingText = document.getElementById('loading-text');
       if (loadingOverlay) loadingOverlay.classList.remove('hidden');
 
       try {
-        // Pass null for baseLocation - we'll calculate entries when user places base location
+        // Pass area for filtering, but null config since base isn't placed yet
         await gameScene.loadRoadsFromOSM(bounds, null, (message) => {
           if (loadingText) loadingText.textContent = message;
-        });
+        }, area);
       } finally {
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
         if (loadingText) loadingText.textContent = 'Loading Map Data...';

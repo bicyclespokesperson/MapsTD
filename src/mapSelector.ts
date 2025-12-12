@@ -29,14 +29,14 @@ export class MapSelector {
   private rangePreviewCircle: L.Circle | null = null;
 
   private onStateChange: (state: SelectionState) => void;
-  private onBoundsSelected?: (bounds: L.LatLngBounds) => void;
+  private onBoundsSelected?: (bounds: L.LatLngBounds, area: L.LatLng[]) => void;
   private validateBaseLocation?: (point: L.LatLng) => boolean;
   private onCornerCountChange?: (count: number) => void;
 
   constructor(
     map: L.Map,
     onStateChange: (state: SelectionState) => void,
-    onBoundsSelected?: (bounds: L.LatLngBounds) => void,
+    onBoundsSelected?: (bounds: L.LatLngBounds, area: L.LatLng[]) => void,
     validateBaseLocation?: (point: L.LatLng) => boolean,
     onCornerCountChange?: (count: number) => void
   ) {
@@ -328,7 +328,7 @@ export class MapSelector {
     this.state.mode = 'none';
 
     if (this.onBoundsSelected) {
-      this.onBoundsSelected(bounds);
+      this.onBoundsSelected(bounds, sortedCorners);
     }
 
     this.notifyStateChange();
@@ -445,7 +445,7 @@ export class MapSelector {
     this.cancelSelection();
 
     if (this.onBoundsSelected) {
-      this.onBoundsSelected(bounds);
+      this.onBoundsSelected(bounds, area);
     }
   };
 

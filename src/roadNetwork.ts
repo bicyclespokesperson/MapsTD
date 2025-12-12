@@ -1,6 +1,6 @@
 import * as L from 'leaflet';
 import { RoadSegment } from './overpassClient';
-import { lineSegmentIntersection, pointInPolygon, lineSegmentPolygonIntersection } from './geometry';
+import { pointInPolygon, lineSegmentPolygonIntersection } from './geometry';
 
 export interface RoadPath {
   roadId: number;
@@ -367,6 +367,7 @@ export class RoadNetwork {
   private bounds: L.LatLngBounds;
   private graph: RoutingGraph;
   private entryPointsFromClipping: Array<{ position: L.LatLng; roadId: number; nodeId: number }> = [];
+  private nextSyntheticNodeId = -1;
 
   constructor(roads: RoadSegment[], bounds: L.LatLngBounds, area?: L.LatLng[]) {
     // Filter and clip roads to only include segments within the area
@@ -381,17 +382,27 @@ export class RoadNetwork {
     this.graph = new RoutingGraph(this.roads);
   }
 
+  private generateSyntheticNodeId(): number {
+    return this.nextSyntheticNodeId--;
+  }
+
   private filterAndClipRoadsByArea(roads: RoadSegment[], area: L.LatLng[]): RoadSegment[] {
+    console.log('Filtering roads by area:', {
+      areaCorners: area.length,
+      area: area.map(p => `(${p.lat.toFixed(4)}, ${p.lng.toFixed(4)})`),
+      totalRoads: roads.length
+    });
+
     const clippedRoads: RoadSegment[] = [];
     let nextSegmentId = roads.length;
 
     for (const road of roads) {
-      // Split road into segments that are inside the area
       const segments = this.splitRoadByArea(road, area, nextSegmentId);
       clippedRoads.push(...segments);
       nextSegmentId += segments.length;
     }
 
+    console.log(`Clipping result: ${roads.length} roads -> ${clippedRoads.length} clipped segments`);
     return clippedRoads;
   }
 
@@ -400,40 +411,62 @@ export class RoadNetwork {
     let currentSegmentPoints: L.LatLng[] = [];
     let currentSegmentNodeIds: number[] = [];
     let segmentIndex = 0;
+    let entryNodeId: number | null = null;
 
     for (let i = 0; i < road.points.length; i++) {
       const currentPoint = road.points[i];
       const currentInside = pointInPolygon(currentPoint, area);
 
-      // Check if we're entering the area from outside
       if (i > 0) {
         const prevPoint = road.points[i - 1];
         const prevInside = pointInPolygon(prevPoint, area);
 
-        if (!prevInside && currentInside) {
+        if (!prevInside && !currentInside) {
+          // Both points outside - check if segment passes through polygon
+          const intersections = this.findAllIntersections(prevPoint, currentPoint, area);
+          if (intersections.length >= 2) {
+            // Segment passes through polygon - create a segment from first to second intersection
+            const entryId = this.generateSyntheticNodeId();
+            const exitId = this.generateSyntheticNodeId();
+
+            segments.push({
+              id: baseId + segmentIndex,
+              points: [intersections[0], intersections[1]],
+              nodeIds: [entryId, exitId],
+              tags: road.tags,
+              highway: road.highway,
+            });
+
+            // Both intersections are entry points (enemies can come from either direction)
+            this.entryPointsFromClipping.push({
+              position: intersections[0],
+              roadId: baseId + segmentIndex,
+              nodeId: entryId
+            });
+            this.entryPointsFromClipping.push({
+              position: intersections[1],
+              roadId: baseId + segmentIndex,
+              nodeId: exitId
+            });
+
+            segmentIndex++;
+          }
+        } else if (!prevInside && currentInside) {
           // Entering: add intersection point to start new segment
           const intersection = lineSegmentPolygonIntersection(prevPoint, currentPoint, area);
           if (intersection) {
+            entryNodeId = this.generateSyntheticNodeId();
             currentSegmentPoints.push(intersection);
-            currentSegmentNodeIds.push(road.nodeIds[i]);
-
-            // Record this as an entry point
-            this.entryPointsFromClipping.push({
-              position: intersection,
-              roadId: baseId + segmentIndex,
-              nodeId: road.nodeIds[i]
-            });
+            currentSegmentNodeIds.push(entryNodeId);
           }
         }
       }
 
       if (currentInside) {
-        // Current point is inside - add to current segment
         currentSegmentPoints.push(currentPoint);
         currentSegmentNodeIds.push(road.nodeIds[i]);
       }
 
-      // Check if we're exiting the area
       if (i < road.points.length - 1) {
         const nextPoint = road.points[i + 1];
         const nextInside = pointInPolygon(nextPoint, area);
@@ -442,11 +475,25 @@ export class RoadNetwork {
           // Exiting: add intersection point and close segment
           const intersection = lineSegmentPolygonIntersection(currentPoint, nextPoint, area);
           if (intersection) {
+            const exitNodeId = this.generateSyntheticNodeId();
             currentSegmentPoints.push(intersection);
-            currentSegmentNodeIds.push(road.nodeIds[i]);
+            currentSegmentNodeIds.push(exitNodeId);
+
+            this.entryPointsFromClipping.push({
+              position: intersection,
+              roadId: baseId + segmentIndex,
+              nodeId: exitNodeId
+            });
           }
 
-          // Save this segment if it has at least 2 points
+          if (entryNodeId !== null && currentSegmentPoints.length >= 2) {
+            this.entryPointsFromClipping.push({
+              position: currentSegmentPoints[0],
+              roadId: baseId + segmentIndex,
+              nodeId: entryNodeId
+            });
+          }
+
           if (currentSegmentPoints.length >= 2) {
             segments.push({
               id: baseId + segmentIndex,
@@ -458,15 +505,23 @@ export class RoadNetwork {
             segmentIndex++;
           }
 
-          // Start new segment
           currentSegmentPoints = [];
           currentSegmentNodeIds = [];
+          entryNodeId = null;
         }
       }
     }
 
     // Add final segment if it exists and has at least 2 points
     if (currentSegmentPoints.length >= 2) {
+      if (entryNodeId !== null) {
+        this.entryPointsFromClipping.push({
+          position: currentSegmentPoints[0],
+          roadId: baseId + segmentIndex,
+          nodeId: entryNodeId
+        });
+      }
+
       segments.push({
         id: baseId + segmentIndex,
         points: currentSegmentPoints,
@@ -479,21 +534,48 @@ export class RoadNetwork {
     return segments;
   }
 
-  private roadIntersectsPolygon(road: RoadSegment, polygon: L.LatLng[]): boolean {
-    for (let i = 0; i < road.points.length - 1; i++) {
-      const roadP1 = road.points[i];
-      const roadP2 = road.points[i + 1];
+  private findAllIntersections(p1: L.LatLng, p2: L.LatLng, polygon: L.LatLng[]): L.LatLng[] {
+    const intersections: Array<{ point: L.LatLng; t: number }> = [];
 
-      for (let j = 0; j < polygon.length; j++) {
-        const polyP1 = polygon[j];
-        const polyP2 = polygon[(j + 1) % polygon.length];
+    for (let i = 0; i < polygon.length; i++) {
+      const edgeStart = polygon[i];
+      const edgeEnd = polygon[(i + 1) % polygon.length];
 
-        if (lineSegmentIntersection(roadP1, roadP2, polyP1, polyP2)) {
-          return true;
-        }
+      const intersection = this.lineSegmentIntersectionWithT(p1, p2, edgeStart, edgeEnd);
+      if (intersection) {
+        intersections.push(intersection);
       }
     }
-    return false;
+
+    // Sort by parameter t (position along p1->p2)
+    intersections.sort((a, b) => a.t - b.t);
+    return intersections.map(i => i.point);
+  }
+
+  private lineSegmentIntersectionWithT(
+    p1: L.LatLng, p2: L.LatLng,
+    p3: L.LatLng, p4: L.LatLng
+  ): { point: L.LatLng; t: number } | null {
+    const x1 = p1.lng, y1 = p1.lat;
+    const x2 = p2.lng, y2 = p2.lat;
+    const x3 = p3.lng, y3 = p3.lat;
+    const x4 = p4.lng, y4 = p4.lat;
+
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (Math.abs(denom) < 1e-12) {
+      return null;
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      const x = x1 + t * (x2 - x1);
+      const y = y1 + t * (y2 - y1);
+      return { point: L.latLng(y, x), t };
+    }
+
+    return null;
   }
 
   getAllRoads(): RoadSegment[] {
@@ -578,58 +660,6 @@ export class RoadNetwork {
     }
 
     return closestEdge;
-  }
-
-  private findRoadPolygonIntersections(
-    road: RoadSegment,
-    polygon: L.LatLng[]
-  ): Array<{ position: L.LatLng; pointIndex: number; edge: 'north' | 'south' | 'east' | 'west' }> {
-    const intersections: Array<{ position: L.LatLng; pointIndex: number; edge: 'north' | 'south' | 'east' | 'west' }> = [];
-
-    for (let i = 0; i < road.points.length - 1; i++) {
-      const roadP1 = road.points[i];
-      const roadP2 = road.points[i + 1];
-
-      // Check intersection with each polygon edge
-      for (let j = 0; j < polygon.length; j++) {
-        const polyP1 = polygon[j];
-        const polyP2 = polygon[(j + 1) % polygon.length];
-
-        const intersection = lineSegmentIntersection(roadP1, roadP2, polyP1, polyP2);
-
-        if (intersection) {
-          // Determine if this is an entry point (road going from outside to inside)
-          const roadP1Inside = pointInPolygon(roadP1, polygon);
-          const roadP2Inside = pointInPolygon(roadP2, polygon);
-
-          // Only count as entry if going from outside to inside
-          if (!roadP1Inside && roadP2Inside) {
-            // Determine approximate edge direction for compatibility
-            const edge = this.getPolygonEdgeDirection(polyP1, polyP2);
-            intersections.push({ position: intersection, pointIndex: i, edge });
-          }
-        }
-      }
-    }
-
-    return intersections;
-  }
-
-  private getPolygonEdgeDirection(p1: L.LatLng, p2: L.LatLng): 'north' | 'south' | 'east' | 'west' {
-    const latDiff = Math.abs(p2.lat - p1.lat);
-    const lngDiff = Math.abs(p2.lng - p1.lng);
-
-    if (latDiff > lngDiff) {
-      // More vertical edge
-      const avgLng = (p1.lng + p2.lng) / 2;
-      const centerLng = (this.bounds.getWest() + this.bounds.getEast()) / 2;
-      return avgLng > centerLng ? 'east' : 'west';
-    } else {
-      // More horizontal edge
-      const avgLat = (p1.lat + p2.lat) / 2;
-      const centerLat = (this.bounds.getSouth() + this.bounds.getNorth()) / 2;
-      return avgLat > centerLat ? 'north' : 'south';
-    }
   }
 
   getBounds(): L.LatLngBounds {
