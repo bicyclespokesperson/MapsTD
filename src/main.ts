@@ -535,7 +535,7 @@ class UIManager {
       } else {
         this.clearGame();
         this.selector.startBoundsSelection();
-        this.selectionHelp.textContent = '1. Drag to select rectangle';
+        this.updateStepHelp(1, 'Drag to draw rectangle');
       }
     });
 
@@ -545,7 +545,7 @@ class UIManager {
       } else {
         this.clearGame();
         this.selector.startCustomSelection();
-        this.selectionHelp.textContent = '1. Click corner 1/4';
+        this.updateStepHelp(1, 'Click corner 1 of 4');
       }
     });
 
@@ -712,7 +712,7 @@ class UIManager {
     window.addEventListener('game-stats-update', (e: any) => {
       const { lives, money, wave } = e.detail;
       this.livesDisplay.textContent = lives.toString();
-      this.moneyDisplay.textContent = money.toString();
+      this.moneyDisplay.textContent = `$${money}`;
       this.waveDisplay.textContent = wave.toString();
       this.towerShopPanel.updateMoney(money);
       this.updateWavePreview();
@@ -754,7 +754,7 @@ class UIManager {
     this.gameScene.setShowRoads(false);
     this.selectBoundsBtn.disabled = false;
     this.selectCustomBtn.disabled = false;
-    this.selectionHelp.textContent = '1. Drag or click 4 corners';
+    this.updateStepHelp(1, 'Select play area');
     console.log('Game cleared');
   }
 
@@ -871,6 +871,10 @@ class UIManager {
     this.gameScene.events.on('tower-deselected', () => {
       this.towerInfoPanel.hide();
     });
+  }
+
+  private updateStepHelp(step: number, text: string) {
+    this.selectionHelp.innerHTML = `<span class="step-number">${step}</span> ${text}`;
   }
 
   private handleUpgradeTower(tower: Tower): void {
@@ -1056,9 +1060,9 @@ phaserGame.events.once('ready', () => {
     // onCornerCountChange: Update help text during custom selection
     (count) => {
       if (count < 4) {
-        selectionHelp.textContent = `1. Click corner ${count + 1}/4`;
+        selectionHelp.innerHTML = `<span class="step-number">1</span> Click corner ${count + 1} of 4`;
       } else {
-        selectionHelp.textContent = '1. Drag or click 4 corners';
+        selectionHelp.innerHTML = '<span class="step-number">1</span> Select play area';
       }
     }
   );

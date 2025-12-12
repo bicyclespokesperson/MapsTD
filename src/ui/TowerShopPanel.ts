@@ -18,6 +18,18 @@ export class TowerShopPanel {
     this.updateAffordability();
   }
 
+  private getTowerDescription(type: TowerType): string {
+    const descriptions: Record<TowerType, string> = {
+      'GUNNER': 'Balanced tower with decent damage and fire rate. Good starter choice.',
+      'SNIPER': 'Long range, high damage, slow fire rate. Great for picking off tough enemies.',
+      'MINIGUN': 'Very fast fire rate with low damage per shot. Shreds groups of weak enemies.',
+      'CANNON': 'Deals splash damage to groups. Slow but devastating against clusters.',
+      'HELICOPTER': 'Mobile tower that patrols an area. Can reach enemies others cannot.',
+      'BOMB': 'One-time use explosive that destroys roads and everything in its radius.',
+    };
+    return descriptions[type];
+  }
+
   private createTowerCards(): void {
     const towerTypes: TowerType[] = ['GUNNER', 'SNIPER', 'MINIGUN', 'CANNON', 'HELICOPTER', 'BOMB'];
 
@@ -25,6 +37,7 @@ export class TowerShopPanel {
       const config = TOWER_CONFIGS[type];
       const card = document.createElement('div');
       card.className = 'tower-card';
+      card.title = this.getTowerDescription(type);
 
       const icon = document.createElement('div');
       icon.className = 'tower-card-icon';
@@ -40,19 +53,20 @@ export class TowerShopPanel {
 
       const stats = document.createElement('div');
       stats.className = 'tower-card-stats';
-      
+
       if (type === 'BOMB') {
-         stats.innerHTML = `
-            DMG: ${config.baseStats.damage}<br>
-            Radius: ${config.baseStats.range}m<br>
-            One-time Usage
-          `;
+        stats.innerHTML = `
+          <span title="Damage dealt to all enemies in radius">${config.baseStats.damage} dmg</span><br>
+          <span title="Explosion radius in meters">${config.baseStats.range}m radius</span><br>
+          <span class="tower-card-special">Single use</span>
+        `;
       } else {
-          stats.innerHTML = `
-            DMG: ${config.baseStats.damage}<br>
-            RNG: ${config.baseStats.range}<br>
-            ROF: ${(1000 / config.baseStats.fireRateMs).toFixed(1)}/s
-          `;
+        const dps = (config.baseStats.damage * (1000 / config.baseStats.fireRateMs)).toFixed(0);
+        stats.innerHTML = `
+          <span title="Damage per shot">${config.baseStats.damage} dmg</span>
+          <span title="Attack range in meters">${config.baseStats.range}m</span><br>
+          <span title="Damage per second" class="tower-card-dps">${dps} DPS</span>
+        `;
       }
 
       card.appendChild(icon);

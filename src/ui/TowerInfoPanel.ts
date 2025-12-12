@@ -36,6 +36,14 @@ export class TowerInfoPanel {
     }
   }
 
+  private formatUptime(ms: number): string {
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
   private render(): void {
     if (!this.currentTower) return;
 
@@ -43,9 +51,13 @@ export class TowerInfoPanel {
     const config = TOWER_CONFIGS[tower.type];
     const upgradeCost = tower.getUpgradeCost();
     const sellValue = tower.getSellValue();
-    const uptime = Math.floor(tower.getUptime() / 1000);
+    const uptime = tower.getUptime();
+    const dps = (tower.stats.damage * (1000 / tower.stats.fireRateMs)).toFixed(1);
 
-    this.titleElement.textContent = `${config.name} Tower (Level ${tower.level})`;
+    this.titleElement.innerHTML = `
+      <span class="tower-title-name">${config.name}</span>
+      <span class="tower-title-level">Lv.${tower.level}</span>
+    `;
 
     const accuracyPercent = tower.statistics.shotsFired > 0
       ? Math.round((tower.statistics.shotsHit / tower.statistics.shotsFired) * 100)
@@ -54,57 +66,71 @@ export class TowerInfoPanel {
     this.contentElement.innerHTML = `
       <div class="tower-info-actions">
         ${upgradeCost !== null
-          ? `<button id="upgradeTowerBtn" data-cost="${upgradeCost}">Upgrade ($${upgradeCost})</button>`
-          : '<button disabled>Max Level</button>'
+          ? `<button id="upgradeTowerBtn" class="upgrade-btn" title="Improve tower stats">Upgrade $${upgradeCost}</button>`
+          : '<button disabled class="upgrade-btn maxed">Max Level</button>'
         }
-        <button id="sellTowerBtn" data-value="${sellValue}">Sell ($${sellValue})</button>
+        <button id="sellTowerBtn" class="sell-btn" title="Remove tower and recoup some cost">Sell $${sellValue}</button>
       </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Total Invested:</span>
-        <span class="tower-info-value">$${tower.getTotalInvested()}</span>
-      </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Targeting:</span>
-        <span class="tower-info-value">
-          <select id="targetingModeSelect" style="background: #333; color: #fff; border: 1px solid #555; padding: 4px; border-radius: 4px;">
-            <option value="FIRST" ${tower.targetingMode === 'FIRST' ? 'selected' : ''}>First (Closest to Goal)</option>
-            <option value="LAST" ${tower.targetingMode === 'LAST' ? 'selected' : ''}>Last (Furthest)</option>
-            <option value="CLOSEST" ${tower.targetingMode === 'CLOSEST' ? 'selected' : ''}>Closest to Tower</option>
-            <option value="STRONGEST" ${tower.targetingMode === 'STRONGEST' ? 'selected' : ''}>Strongest (Most HP)</option>
+
+      <div class="tower-info-section">
+        <div class="tower-info-row">
+          <span class="tower-info-label" title="Choose how this tower picks targets">Targeting</span>
+          <select id="targetingModeSelect" class="targeting-select">
+            <option value="FIRST" ${tower.targetingMode === 'FIRST' ? 'selected' : ''}>First</option>
+            <option value="LAST" ${tower.targetingMode === 'LAST' ? 'selected' : ''}>Last</option>
+            <option value="CLOSEST" ${tower.targetingMode === 'CLOSEST' ? 'selected' : ''}>Nearest</option>
+            <option value="STRONGEST" ${tower.targetingMode === 'STRONGEST' ? 'selected' : ''}>Strongest</option>
           </select>
-        </span>
+        </div>
       </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Kills:</span>
-        <span class="tower-info-value">${tower.statistics.kills}</span>
+
+      <div class="tower-info-section">
+        <h4 class="tower-info-section-title">Stats</h4>
+        <div class="tower-stats-grid">
+          <div class="tower-stat-item" title="Damage per shot">
+            <span class="stat-label">Damage</span>
+            <span class="stat-value">${tower.stats.damage}</span>
+          </div>
+          <div class="tower-stat-item" title="Attack range in meters">
+            <span class="stat-label">Range</span>
+            <span class="stat-value">${tower.stats.range}m</span>
+          </div>
+          <div class="tower-stat-item" title="Shots per second">
+            <span class="stat-label">Fire Rate</span>
+            <span class="stat-value">${(1000 / tower.stats.fireRateMs).toFixed(1)}/s</span>
+          </div>
+          <div class="tower-stat-item highlight" title="Theoretical damage per second">
+            <span class="stat-label">DPS</span>
+            <span class="stat-value">${dps}</span>
+          </div>
+        </div>
       </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Damage Dealt:</span>
-        <span class="tower-info-value">${tower.statistics.damageDealt}</span>
+
+      <div class="tower-info-section">
+        <h4 class="tower-info-section-title">Performance</h4>
+        <div class="tower-stats-grid">
+          <div class="tower-stat-item" title="Total enemies destroyed">
+            <span class="stat-label">Kills</span>
+            <span class="stat-value">${tower.statistics.kills}</span>
+          </div>
+          <div class="tower-stat-item" title="Total damage dealt to enemies">
+            <span class="stat-label">Damage</span>
+            <span class="stat-value">${tower.statistics.damageDealt}</span>
+          </div>
+          <div class="tower-stat-item" title="Percentage of shots that hit a target">
+            <span class="stat-label">Accuracy</span>
+            <span class="stat-value">${accuracyPercent}%</span>
+          </div>
+          <div class="tower-stat-item" title="Damage dealt per dollar invested">
+            <span class="stat-label">Efficiency</span>
+            <span class="stat-value">${tower.getEfficiency().toFixed(1)}</span>
+          </div>
+        </div>
       </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Accuracy:</span>
-        <span class="tower-info-value">${accuracyPercent}% (${tower.statistics.shotsHit}/${tower.statistics.shotsFired})</span>
-      </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Efficiency:</span>
-        <span class="tower-info-value">${tower.getEfficiency().toFixed(1)} dmg/$</span>
-      </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Range:</span>
-        <span class="tower-info-value">${tower.stats.range}</span>
-      </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Damage:</span>
-        <span class="tower-info-value">${tower.stats.damage}</span>
-      </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Fire Rate:</span>
-        <span class="tower-info-value">${(1000 / tower.stats.fireRateMs).toFixed(2)}/s</span>
-      </div>
-      <div class="tower-info-row">
-        <span class="tower-info-label">Uptime:</span>
-        <span class="tower-info-value">${uptime}s</span>
+
+      <div class="tower-info-footer">
+        <span title="Total money spent on this tower">Invested: $${tower.getTotalInvested()}</span>
+        <span title="Time since tower was placed">Active: ${this.formatUptime(uptime)}</span>
       </div>
     `;
 
