@@ -18,7 +18,6 @@ import { Crater } from './game/Crater';
 import { DeathEffect } from './game/DeathEffect';
 
 import { GAME_CONFIG } from './config';
-import { pointInPolygon } from './geometry';
 
 const DEFAULT_CENTER = GAME_CONFIG.MAP.DEFAULT_CENTER;
 const DEFAULT_ZOOM = GAME_CONFIG.MAP.DEFAULT_ZOOM;
@@ -143,7 +142,8 @@ class GameScene extends Phaser.Scene {
       const roads = await client.queryRoads(bounds);
 
       if (onProgress) onProgress('Building road network...');
-      this.roadNetwork = new RoadNetwork(roads, bounds);
+      // Pass area to filter roads to only those within the selected area
+      this.roadNetwork = new RoadNetwork(roads, bounds, config?.area);
 
       // Only calculate entries if we have a full config with area
       if (config) {
@@ -176,52 +176,23 @@ class GameScene extends Phaser.Scene {
     if (!this.roadNetwork) return;
 
     const roads = this.roadNetwork.getAllRoads();
-    const area = this.towerManager?.getMapConfig()?.area;
 
     const color = this.showRoads ? GAME_CONFIG.ROADS.COLOR_VISIBLE : GAME_CONFIG.ROADS.COLOR_HIDDEN;
     const opacity = this.showRoads ? GAME_CONFIG.ROADS.OPACITY_VISIBLE : GAME_CONFIG.ROADS.OPACITY_HIDDEN;
 
+    // Roads are already clipped during network construction
     for (const road of roads) {
       if (road.points.length < 2) continue;
 
       this.roadGraphics.lineStyle(GAME_CONFIG.ROADS.WIDTH, color, opacity);
 
-      // Only draw segments inside the area polygon
-      if (area) {
-        let inPath = false;
-        for (let i = 0; i < road.points.length; i++) {
-          const point = road.points[i];
-          const isInside = pointInPolygon(point, area);
-          const screenPoint = this.converter.latLngToPixel(point);
-
-          if (isInside) {
-            if (!inPath) {
-              this.roadGraphics.beginPath();
-              this.roadGraphics.moveTo(screenPoint.x, screenPoint.y);
-              inPath = true;
-            } else {
-              this.roadGraphics.lineTo(screenPoint.x, screenPoint.y);
-            }
-          } else {
-            if (inPath) {
-              this.roadGraphics.strokePath();
-              inPath = false;
-            }
-          }
-        }
-        if (inPath) {
-          this.roadGraphics.strokePath();
-        }
-      } else {
-        // No config yet, draw all roads
-        const points = road.points.map(p => this.converter.latLngToPixel(p));
-        this.roadGraphics.beginPath();
-        this.roadGraphics.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          this.roadGraphics.lineTo(points[i].x, points[i].y);
-        }
-        this.roadGraphics.strokePath();
+      const points = road.points.map(p => this.converter.latLngToPixel(p));
+      this.roadGraphics.beginPath();
+      this.roadGraphics.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        this.roadGraphics.lineTo(points[i].x, points[i].y);
       }
+      this.roadGraphics.strokePath();
     }
   }
 
@@ -592,6 +563,12 @@ class UIManager {
         }
       }
 
+      // Press 'M' to add 10000 money for testing
+      if (e.key === 'm' || e.key === 'M') {
+        this.gameScene.waveManager.addMoney(10000);
+        console.log('Added 10000 money for testing');
+      }
+
       // Press 'L1' through 'L9' to load test maps for quick testing
       // Only works when no game is in progress (wave 0)
       const now = Date.now();
@@ -762,6 +739,7 @@ class UIManager {
   }
 
   private clearGame() {
+    console.log('Clearing game...');
     this.gameScene.reset();
     this.selector.clearSelection();
     this.resetGameControls();
@@ -775,6 +753,7 @@ class UIManager {
     this.selectBoundsBtn.disabled = false;
     this.selectCustomBtn.disabled = false;
     this.selectionHelp.textContent = '1. Drag or click 4 corners';
+    console.log('Game cleared');
   }
 
   private showGameOver(wave: number, kills: number, moneyEarned: number) {

@@ -153,3 +153,37 @@ export function isConvexQuadrilateral(corners: L.LatLng[]): boolean {
 
   return allPositive || allNegative;
 }
+
+/**
+ * Find the intersection point between a line segment and a polygon boundary.
+ * Returns the intersection point closest to p1, or null if no intersection exists.
+ */
+export function lineSegmentPolygonIntersection(
+  p1: L.LatLng,
+  p2: L.LatLng,
+  polygon: L.LatLng[]
+): L.LatLng | null {
+  let closestIntersection: L.LatLng | null = null;
+  let closestDistance = Infinity;
+
+  for (let i = 0; i < polygon.length; i++) {
+    const edgeStart = polygon[i];
+    const edgeEnd = polygon[(i + 1) % polygon.length];
+
+    const intersection = lineSegmentIntersection(p1, p2, edgeStart, edgeEnd);
+
+    if (intersection) {
+      const distance = Math.sqrt(
+        Math.pow(intersection.lat - p1.lat, 2) +
+        Math.pow(intersection.lng - p1.lng, 2)
+      );
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIntersection = intersection;
+      }
+    }
+  }
+
+  return closestIntersection;
+}

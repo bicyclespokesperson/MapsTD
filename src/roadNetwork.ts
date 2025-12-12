@@ -1,6 +1,6 @@
 import * as L from 'leaflet';
 import { RoadSegment } from './overpassClient';
-import { lineSegmentIntersection, pointInPolygon } from './geometry';
+import { lineSegmentIntersection, pointInPolygon, lineSegmentPolygonIntersection } from './geometry';
 
 export interface RoadPath {
   roadId: number;
@@ -366,11 +366,134 @@ export class RoadNetwork {
   private roads: RoadSegment[];
   private bounds: L.LatLngBounds;
   private graph: RoutingGraph;
+  private entryPointsFromClipping: Array<{ position: L.LatLng; roadId: number; nodeId: number }> = [];
 
-  constructor(roads: RoadSegment[], bounds: L.LatLngBounds) {
-    this.roads = roads;
+  constructor(roads: RoadSegment[], bounds: L.LatLngBounds, area?: L.LatLng[]) {
+    // Filter and clip roads to only include segments within the area
+    if (area) {
+      this.roads = this.filterAndClipRoadsByArea(roads, area);
+      console.log(`Filtered roads: ${roads.length} total roads -> ${this.roads.length} road segments within area`);
+      console.log(`Found ${this.entryPointsFromClipping.length} entry points during clipping`);
+    } else {
+      this.roads = roads;
+    }
     this.bounds = bounds;
-    this.graph = new RoutingGraph(roads);
+    this.graph = new RoutingGraph(this.roads);
+  }
+
+  private filterAndClipRoadsByArea(roads: RoadSegment[], area: L.LatLng[]): RoadSegment[] {
+    const clippedRoads: RoadSegment[] = [];
+    let nextSegmentId = roads.length;
+
+    for (const road of roads) {
+      // Split road into segments that are inside the area
+      const segments = this.splitRoadByArea(road, area, nextSegmentId);
+      clippedRoads.push(...segments);
+      nextSegmentId += segments.length;
+    }
+
+    return clippedRoads;
+  }
+
+  private splitRoadByArea(road: RoadSegment, area: L.LatLng[], baseId: number): RoadSegment[] {
+    const segments: RoadSegment[] = [];
+    let currentSegmentPoints: L.LatLng[] = [];
+    let currentSegmentNodeIds: number[] = [];
+    let segmentIndex = 0;
+
+    for (let i = 0; i < road.points.length; i++) {
+      const currentPoint = road.points[i];
+      const currentInside = pointInPolygon(currentPoint, area);
+
+      // Check if we're entering the area from outside
+      if (i > 0) {
+        const prevPoint = road.points[i - 1];
+        const prevInside = pointInPolygon(prevPoint, area);
+
+        if (!prevInside && currentInside) {
+          // Entering: add intersection point to start new segment
+          const intersection = lineSegmentPolygonIntersection(prevPoint, currentPoint, area);
+          if (intersection) {
+            currentSegmentPoints.push(intersection);
+            currentSegmentNodeIds.push(road.nodeIds[i]);
+
+            // Record this as an entry point
+            this.entryPointsFromClipping.push({
+              position: intersection,
+              roadId: baseId + segmentIndex,
+              nodeId: road.nodeIds[i]
+            });
+          }
+        }
+      }
+
+      if (currentInside) {
+        // Current point is inside - add to current segment
+        currentSegmentPoints.push(currentPoint);
+        currentSegmentNodeIds.push(road.nodeIds[i]);
+      }
+
+      // Check if we're exiting the area
+      if (i < road.points.length - 1) {
+        const nextPoint = road.points[i + 1];
+        const nextInside = pointInPolygon(nextPoint, area);
+
+        if (currentInside && !nextInside) {
+          // Exiting: add intersection point and close segment
+          const intersection = lineSegmentPolygonIntersection(currentPoint, nextPoint, area);
+          if (intersection) {
+            currentSegmentPoints.push(intersection);
+            currentSegmentNodeIds.push(road.nodeIds[i]);
+          }
+
+          // Save this segment if it has at least 2 points
+          if (currentSegmentPoints.length >= 2) {
+            segments.push({
+              id: baseId + segmentIndex,
+              points: currentSegmentPoints,
+              nodeIds: currentSegmentNodeIds,
+              tags: road.tags,
+              highway: road.highway,
+            });
+            segmentIndex++;
+          }
+
+          // Start new segment
+          currentSegmentPoints = [];
+          currentSegmentNodeIds = [];
+        }
+      }
+    }
+
+    // Add final segment if it exists and has at least 2 points
+    if (currentSegmentPoints.length >= 2) {
+      segments.push({
+        id: baseId + segmentIndex,
+        points: currentSegmentPoints,
+        nodeIds: currentSegmentNodeIds,
+        tags: road.tags,
+        highway: road.highway,
+      });
+    }
+
+    return segments;
+  }
+
+  private roadIntersectsPolygon(road: RoadSegment, polygon: L.LatLng[]): boolean {
+    for (let i = 0; i < road.points.length - 1; i++) {
+      const roadP1 = road.points[i];
+      const roadP2 = road.points[i + 1];
+
+      for (let j = 0; j < polygon.length; j++) {
+        const polyP1 = polygon[j];
+        const polyP2 = polygon[(j + 1) % polygon.length];
+
+        if (lineSegmentIntersection(roadP1, roadP2, polyP1, polyP2)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   getAllRoads(): RoadSegment[] {
@@ -390,49 +513,71 @@ export class RoadNetwork {
     // 2. Run Dijkstra ONCE from target to compute all shortest paths
     const { previous } = this.graph.computeShortestPathsFrom(targetNodeId);
 
-    for (const road of this.roads) {
-      const boundaryPoints = this.findRoadPolygonIntersections(road, area);
+    // 3. Use entry points discovered during road clipping
+    for (const entryPoint of this.entryPointsFromClipping) {
+      // Find the road this entry belongs to
+      const road = this.roads.find(r => r.id === entryPoint.roadId);
+      if (!road) continue;
 
-      for (const bp of boundaryPoints) {
-        // 3. Find closest graph node to entry point
-        // Since intersections happen on segments, we can look at the road's nodes.
-        // The intersection is on the segment between points[i] and points[i+1].
-        // So the closest node is either nodeIds[i] or nodeIds[i+1].
+      // The entry point is the first point of the clipped road segment
+      const startNodeId = entryPoint.nodeId;
 
-        const p1 = road.points[bp.pointIndex];
-        const p2 = road.points[bp.pointIndex + 1];
-        const id1 = road.nodeIds[bp.pointIndex];
-        const id2 = road.nodeIds[bp.pointIndex + 1];
+      // Reconstruct path from entry node to target
+      const pathPoints = this.graph.reconstructPath(startNodeId, previous);
 
-        const d1 = bp.position.distanceTo(p1);
-        const d2 = bp.position.distanceTo(p2);
+      if (pathPoints && pathPoints.length > 0) {
+        // Prepend the exact boundary intersection point
+        pathPoints.unshift(entryPoint.position);
+        // Append the exact target point
+        pathPoints.push(targetPoint);
 
-        const startNodeId = d1 < d2 ? id1 : id2;
+        // Determine which edge this entry point is on
+        const edge = this.determineEdge(entryPoint.position, area);
 
-        // 4. Reconstruct path from cached results
-        const pathPoints = this.graph.reconstructPath(startNodeId, previous);
-
-        if (pathPoints && pathPoints.length > 0) {
-          // Prepend the exact boundary intersection point
-          pathPoints.unshift(bp.position);
-          // Append the exact target point
-          pathPoints.push(targetPoint);
-
-          entries.push({
-            position: bp.position,
-            roadPath: {
-              roadId: road.id,
-              waypoints: pathPoints,
-              highway: road.highway
-            },
-            edge: bp.edge,
-          });
-        }
+        entries.push({
+          position: entryPoint.position,
+          roadPath: {
+            roadId: road.id,
+            waypoints: pathPoints,
+            highway: road.highway
+          },
+          edge,
+        });
       }
     }
 
     console.log(`Found ${entries.length} boundary entry points with valid paths`);
     return entries;
+  }
+
+  private determineEdge(point: L.LatLng, area: L.LatLng[]): 'north' | 'south' | 'east' | 'west' {
+    // Find which polygon edge is closest to this point
+    let closestEdge: 'north' | 'south' | 'east' | 'west' = 'north';
+    let closestDistance = Infinity;
+
+    for (let i = 0; i < area.length; i++) {
+      const edgeStart = area[i];
+      const edgeEnd = area[(i + 1) % area.length];
+
+      // Calculate distance from point to this edge
+      const distance = point.distanceTo(edgeStart) + point.distanceTo(edgeEnd);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        // Determine edge direction based on lat/lng
+        const avgLat = (edgeStart.lat + edgeEnd.lat) / 2;
+        const avgLng = (edgeStart.lng + edgeEnd.lng) / 2;
+        const centerLat = area.reduce((sum, p) => sum + p.lat, 0) / area.length;
+        const centerLng = area.reduce((sum, p) => sum + p.lng, 0) / area.length;
+
+        if (avgLat > centerLat) closestEdge = 'north';
+        else if (avgLat < centerLat) closestEdge = 'south';
+        else if (avgLng > centerLng) closestEdge = 'east';
+        else closestEdge = 'west';
+      }
+    }
+
+    return closestEdge;
   }
 
   private findRoadPolygonIntersections(
