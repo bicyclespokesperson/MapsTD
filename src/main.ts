@@ -715,6 +715,7 @@ class UIManager {
       this.moneyDisplay.textContent = `$${money}`;
       this.waveDisplay.textContent = wave.toString();
       this.towerShopPanel.updateMoney(money);
+      this.towerInfoPanel.updateMoney(money);
       this.updateWavePreview();
 
       // Disable Select Area buttons once a wave has started

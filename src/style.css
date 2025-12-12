@@ -843,6 +843,17 @@ button:disabled {
   color: #666;
 }
 
+.upgrade-btn.unaffordable {
+  background: linear-gradient(135deg, #555 0%, #444 100%);
+  opacity: 0.6;
+  filter: grayscale(40%);
+}
+
+.upgrade-btn.unaffordable:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .sell-btn {
   background: transparent;
   border: 1px solid #f44336;

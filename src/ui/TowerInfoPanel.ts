@@ -6,6 +6,7 @@ export class TowerInfoPanel {
   private titleElement: HTMLElement;
   private contentElement: HTMLElement;
   private currentTower: Tower | null = null;
+  private currentMoney: number = 0;
 
   private onUpgrade: (tower: Tower) => void;
   private onSell: (tower: Tower) => void;
@@ -19,8 +20,34 @@ export class TowerInfoPanel {
     this.contentElement = document.getElementById('towerInfoContent')!;
   }
 
-  public showTower(tower: Tower): void {
+  public updateMoney(money: number): void {
+    this.currentMoney = money;
+    this.updateUpgradeButton();
+  }
+
+  private updateUpgradeButton(): void {
+    const upgradeBtn = document.getElementById('upgradeTowerBtn') as HTMLButtonElement;
+    if (!upgradeBtn || !this.currentTower) return;
+
+    const upgradeCost = this.currentTower.getUpgradeCost();
+    if (upgradeCost === null) return;
+
+    const canAfford = this.currentMoney >= upgradeCost;
+    upgradeBtn.disabled = !canAfford;
+    upgradeBtn.classList.toggle('unaffordable', !canAfford);
+
+    if (canAfford) {
+      upgradeBtn.title = 'Improve tower stats';
+    } else {
+      upgradeBtn.title = `Need $${upgradeCost - this.currentMoney} more`;
+    }
+  }
+
+  public showTower(tower: Tower, currentMoney?: number): void {
     this.currentTower = tower;
+    if (currentMoney !== undefined) {
+      this.currentMoney = currentMoney;
+    }
     this.render();
     this.panel.classList.remove('hidden');
   }
