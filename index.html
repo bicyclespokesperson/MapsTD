@@ -9,45 +9,69 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
-    <script type="module" crossorigin src="/MapsTD/assets/index-wnan__fY.js"></script>
-    <link rel="stylesheet" crossorigin href="/MapsTD/assets/index-D-v_FuN5.css">
+    <script type="module" crossorigin src="/MapsTD/assets/index-EMDSQeM_.js"></script>
+    <link rel="stylesheet" crossorigin href="/MapsTD/assets/index-DkfnI8Ru.css">
   </head>
   <body>
     <div id="app-container">
       <div id="sidebar">
-        <h1>Maps Tower Defense</h1>
-        <div class="controls">
-          <div class="selection-buttons">
-            <button id="selectBoundsBtn">Select Rectangle</button>
-            <button id="selectCustomBtn">Select Custom</button>
+        <h1>Maps TD</h1>
+
+        <!-- Setup Section -->
+        <div class="sidebar-section">
+          <h2 class="section-title">Setup</h2>
+          <div class="controls">
+            <div class="selection-buttons">
+              <button id="selectBoundsBtn" title="Click and drag to draw a rectangular play area">Rectangle</button>
+              <button id="selectCustomBtn" title="Click 4 corners to define a custom polygon play area">Custom Shape</button>
+            </div>
+            <p id="selection-help" class="help-text step-indicator"><span class="step-number">1</span> Select play area</p>
+
+            <button id="placeBaseBtn" disabled title="Choose where enemies will attack - must be on a road">Set Defend Point</button>
+            <p class="help-text step-indicator"><span class="step-number">2</span> Pick a location to defend</p>
           </div>
-          <p id="selection-help" class="help-text">1. Drag or click 4 corners</p>
+        </div>
 
-          <button id="placeBaseBtn" disabled>Place Base Location</button>
-          <p class="help-text">2. Click a road to place base</p>
-
+        <!-- Game Controls Section -->
+        <div class="sidebar-section">
+          <h2 class="section-title">Battle</h2>
           <div id="wave-preview" class="hidden">
-            <p class="wave-preview-label">Next Wave:</p>
+            <p class="wave-preview-label">Incoming Enemies:</p>
             <div id="wave-preview-content"></div>
           </div>
 
-          <button id="startWaveBtn" disabled>Start Wave</button>
+          <button id="startWaveBtn" disabled title="Send the next wave of enemies">Send Wave</button>
           <div id="game-controls" class="hidden">
-            <button id="pauseBtn">Pause</button>
-            <button id="speedBtn">1x</button>
+            <button id="pauseBtn" title="Pause or resume the game">Pause</button>
+            <button id="speedBtn" title="Change game speed (0.5x, 1x, 2x)">1x</button>
           </div>
-          <p class="help-text">3. Defend!</p>
+          <p class="help-text step-indicator"><span class="step-number">3</span> Build towers and survive!</p>
+        </div>
 
-          <hr />
+        <hr class="section-divider" />
 
-          <button id="shareBtn" disabled>Share Map</button>
-          <button id="loadConfigBtn">Load Map</button>
+        <!-- Share/Load Section -->
+        <div class="sidebar-section share-section">
+          <button id="shareBtn" disabled title="Copy map configuration to clipboard to share with friends">Copy Map</button>
+          <button id="loadConfigBtn" title="Paste a shared map configuration to play on someone else's map">Load Shared Map</button>
         </div>
 
         <div id="stats-panel">
-          <div class="stat-row">Lives: <span id="livesDisplay">10</span></div>
-          <div class="stat-row">Money: <span id="moneyDisplay">200</span></div>
-          <div class="stat-row">Wave: <span id="waveDisplay">0</span></div>
+          <div class="stat-row">
+            <span class="stat-icon" title="Remaining lives - game over when this reaches 0">❤️</span>
+            <span class="stat-label">Lives</span>
+            <span id="livesDisplay" class="stat-value">10</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-icon" title="Money to spend on towers and upgrades">💰</span>
+            <span class="stat-label">Money</span>
+            <span id="moneyDisplay" class="stat-value">$200</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-icon" title="Current wave number - enemies get tougher each wave">🌊</span>
+            <span class="stat-label">Wave</span>
+            <span id="waveDisplay" class="stat-value">0</span>
+          </div>
         </div>
 
         <div id="tower-info-panel" class="hidden">
