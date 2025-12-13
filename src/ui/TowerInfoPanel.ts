@@ -49,6 +49,7 @@ export class TowerInfoPanel {
       this.currentMoney = currentMoney;
     }
     this.render();
+    this.updateUpgradeButton();
     this.panel.classList.remove('hidden');
   }
 
@@ -60,6 +61,7 @@ export class TowerInfoPanel {
   public updateDisplay(): void {
     if (this.currentTower) {
       this.render();
+      this.updateUpgradeButton();
     }
   }
 

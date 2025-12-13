@@ -866,7 +866,8 @@ class UIManager {
 
   private setupTowerListeners() {
     this.gameScene.events.on('tower-selected', (tower: Tower) => {
-      this.towerInfoPanel.showTower(tower);
+      const currentMoney = this.gameScene.waveManager.getStats().money;
+      this.towerInfoPanel.showTower(tower, currentMoney);
     });
 
     this.gameScene.events.on('tower-deselected', () => {
@@ -893,6 +894,9 @@ class UIManager {
 
     if (tower.upgrade()) {
       this.gameScene.waveManager.spendMoney(upgradeCost);
+      const newMoney = this.gameScene.waveManager.getStats().money;
+      this.towerInfoPanel.updateMoney(newMoney);
+      this.towerShopPanel.updateMoney(newMoney);
       this.towerInfoPanel.updateDisplay();
       console.log('Tower upgraded!');
     }
