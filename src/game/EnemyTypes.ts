@@ -33,7 +33,7 @@ export const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
   },
   TANK: {
     name: 'Tank',
-    health: 400,
+    health: 500,
     speed: 64,
     reward: 22,
     color: 0x8b4513,

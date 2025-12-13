@@ -68,6 +68,13 @@ export class WaveManager {
     window.dispatchEvent(event);
   }
 
+  private dispatchWaveComplete() {
+    const event = new CustomEvent('wave-complete', {
+      detail: { wave: this.currentWave }
+    });
+    window.dispatchEvent(event);
+  }
+
   constructor(scene: Phaser.Scene, converter: CoordinateConverter) {
     this.scene = scene;
     this.converter = converter;
@@ -118,6 +125,7 @@ export class WaveManager {
     } else if (this.activeEnemies.length === 0) {
       this.isWaveActive = false;
       console.log('Wave Complete!');
+      this.dispatchWaveComplete();
     }
   }
 

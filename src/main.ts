@@ -716,13 +716,16 @@ class UIManager {
       this.waveDisplay.textContent = wave.toString();
       this.towerShopPanel.updateMoney(money);
       this.towerInfoPanel.updateMoney(money);
-      this.updateWavePreview();
 
       // Disable Select Area buttons once a wave has started
       if (wave > 0) {
         this.selectBoundsBtn.disabled = true;
         this.selectCustomBtn.disabled = true;
       }
+    });
+
+    window.addEventListener('wave-complete', () => {
+      this.updateWavePreview();
     });
 
     window.addEventListener('game-over', (e: any) => {
