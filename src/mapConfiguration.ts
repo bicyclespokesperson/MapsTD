@@ -23,29 +23,8 @@ export interface MapConfigData {
   };
 }
 
-interface LegacyMapConfigData {
-  version: string;
-  bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-  };
-  baseLocation: {
-    lat: number;
-    lng: number;
-  };
-  customArea?: {
-    corners: [LatLngPoint, LatLngPoint, LatLngPoint, LatLngPoint];
-  };
-  metadata?: {
-    createdAt?: string;
-    name?: string;
-  };
-}
-
 export class MapConfiguration {
-  private static readonly VERSION = '3.0.0';
+  private static readonly VERSION = '1.0.0';
 
   area: L.LatLng[];
   baseLocation: L.LatLng;
@@ -143,27 +122,9 @@ export class MapConfiguration {
     return JSON.stringify(this.toJSON());
   }
 
-  static fromJSON(data: MapConfigData | LegacyMapConfigData): MapConfiguration {
+  static fromJSON(data: MapConfigData): MapConfiguration {
     const baseLocation = L.latLng(data.baseLocation.lat, data.baseLocation.lng);
-
-    let area: L.LatLng[];
-
-    if ('area' in data && data.area) {
-      area = data.area.corners.map(c => L.latLng(c.lat, c.lng));
-    } else {
-      const legacyData = data as LegacyMapConfigData;
-      if (legacyData.customArea) {
-        area = legacyData.customArea.corners.map(c => L.latLng(c.lat, c.lng));
-      } else {
-        const { north, south, east, west } = legacyData.bounds;
-        area = [
-          L.latLng(north, west),
-          L.latLng(north, east),
-          L.latLng(south, east),
-          L.latLng(south, west),
-        ];
-      }
-    }
+    const area = data.area.corners.map(c => L.latLng(c.lat, c.lng));
 
     const config = new MapConfiguration(area, baseLocation, data.metadata?.name);
     config.metadata.createdAt = data.metadata?.createdAt || config.metadata.createdAt;
@@ -172,7 +133,7 @@ export class MapConfiguration {
   }
 
   static fromString(jsonString: string): MapConfiguration {
-    const data = JSON.parse(jsonString) as MapConfigData | LegacyMapConfigData;
+    const data = JSON.parse(jsonString) as MapConfigData;
     return MapConfiguration.fromJSON(data);
   }
 
