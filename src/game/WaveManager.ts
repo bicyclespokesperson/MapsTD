@@ -10,13 +10,14 @@ export class WaveManager {
   private scene: Phaser.Scene;
   private converter: CoordinateConverter;
   private entries: BoundaryEntry[];
-  
+
   private currentWave: number = 0;
-  private enemiesRemainingToSpawn: number = 0;
   private spawnTimer: number = 0;
   private spawnInterval: number = 2000; // ms
-  
+
   private activeEnemies: Enemy[] = [];
+  private spawnQueue: EnemyType[] = [];
+  private nextWaveQueue: EnemyType[] = [];
   private lives: number = GAME_CONFIG.ECONOMY.STARTING_LIVES;
   private money: number = GAME_CONFIG.ECONOMY.STARTING_MONEY;
 
@@ -26,7 +27,6 @@ export class WaveManager {
 
   private gameSpeed: number = 1;
   private _isPaused: boolean = false;
-  private bossSpawnedThisWave: boolean = false;
 
   pause() {
     this._isPaused = true;
@@ -83,6 +83,27 @@ export class WaveManager {
 
   setEntries(entries: BoundaryEntry[]) {
     this.entries = entries;
+    this.generateNextWaveQueue();
+  }
+
+  private generateWaveQueue(wave: number): EnemyType[] {
+    const totalEnemies = 5 + (wave * 5);
+    const queue: EnemyType[] = [];
+
+    for (let i = 0; i < totalEnemies; i++) {
+      queue.push(this.getEnemyTypeForWave(wave));
+    }
+
+    // Add boss on waves divisible by 5
+    if (wave % 5 === 0 && wave > 0) {
+      queue.unshift('BOSS');
+    }
+
+    return queue;
+  }
+
+  private generateNextWaveQueue() {
+    this.nextWaveQueue = this.generateWaveQueue(this.currentWave + 1);
   }
 
   startNextWave() {
@@ -92,11 +113,14 @@ export class WaveManager {
     }
 
     this.currentWave++;
-    this.enemiesRemainingToSpawn = 5 + (this.currentWave * 5); // Simple progression
+    this.spawnQueue = [...this.nextWaveQueue];
     this.spawnInterval = Math.max(500, 2000 - (this.currentWave * 100));
     this.isWaveActive = true;
-    this.bossSpawnedThisWave = false;
-    console.log(`Starting Wave ${this.currentWave}: ${this.enemiesRemainingToSpawn} enemies`);
+    console.log(`Starting Wave ${this.currentWave}: ${this.spawnQueue.length} enemies`);
+
+    // Pre-generate next wave for preview
+    this.generateNextWaveQueue();
+
     this.updateStats();
   }
 
@@ -116,7 +140,7 @@ export class WaveManager {
 
     if (!this.isWaveActive) return;
 
-    if (this.enemiesRemainingToSpawn > 0) {
+    if (this.spawnQueue.length > 0) {
       this.spawnTimer += adjustedDelta;
       if (this.spawnTimer >= this.spawnInterval) {
         this.spawnEnemy();
@@ -130,17 +154,10 @@ export class WaveManager {
   }
 
   private spawnEnemy() {
-    if (this.entries.length === 0) return;
+    if (this.entries.length === 0 || this.spawnQueue.length === 0) return;
 
     const entry = this.entries[Math.floor(Math.random() * this.entries.length)];
-
-    let enemyType: EnemyType;
-    if (this.currentWave % 5 === 0 && this.currentWave > 0 && !this.bossSpawnedThisWave) {
-      enemyType = 'BOSS';
-      this.bossSpawnedThisWave = true;
-    } else {
-      enemyType = this.getEnemyTypeForWave();
-    }
+    const enemyType = this.spawnQueue.shift()!;
 
     const enemy = new Enemy(
       this.scene,
@@ -152,12 +169,10 @@ export class WaveManager {
     );
 
     this.activeEnemies.push(enemy);
-    this.enemiesRemainingToSpawn--;
   }
 
-  private getEnemyTypeForWave(): EnemyType {
+  private getEnemyTypeForWave(wave: number): EnemyType {
     const rand = Math.random();
-    const wave = this.currentWave;
 
     if (wave <= 2) {
       return 'NORMAL';
@@ -222,22 +237,24 @@ export class WaveManager {
     this.totalMoneyEarned = 0;
     this.activeEnemies.forEach(e => e.destroy());
     this.activeEnemies = [];
+    this.spawnQueue = [];
+    this.generateNextWaveQueue();
 
     this.updateStats();
   }
-  
+
   reset() {
     this.lives = GAME_CONFIG.ECONOMY.STARTING_LIVES;
     this.money = GAME_CONFIG.ECONOMY.STARTING_MONEY;
     this.currentWave = 0;
     this.totalKills = 0;
     this.totalMoneyEarned = 0;
-    this.enemiesRemainingToSpawn = 0;
+    this.spawnQueue = [];
+    this.nextWaveQueue = [];
     this.spawnTimer = 0;
     this.isWaveActive = false;
     this.gameSpeed = 1;
     this._isPaused = false;
-    this.bossSpawnedThisWave = false;
     this.entries = [];
 
     this.activeEnemies.forEach(e => e.destroy());
@@ -273,62 +290,27 @@ export class WaveManager {
   }
 
   getNextWavePreview(): { type: EnemyType; count: number; color: string }[] {
-    const nextWave = this.currentWave + 1;
-    const totalEnemies = 5 + (nextWave * 5);
-
-    // Calculate expected composition based on wave probabilities
-    let scoutPercent = 0;
-    let normalPercent = 0;
-    let tankPercent = 0;
-
-    if (nextWave <= 2) {
-      normalPercent = 1;
-    } else if (nextWave <= 5) {
-      scoutPercent = 0.3;
-      normalPercent = 0.6;
-      tankPercent = 0.1;
-    } else if (nextWave <= 10) {
-      scoutPercent = 0.2;
-      normalPercent = 0.5;
-      tankPercent = 0.3;
-    } else {
-      scoutPercent = 0.3;
-      normalPercent = 0.3;
-      tankPercent = 0.4;
-    }
-
     const toHexColor = (color: number) => '#' + color.toString(16).padStart(6, '0');
+
+    // Count enemies in the pre-generated queue
+    const counts = new Map<EnemyType, number>();
+    for (const type of this.nextWaveQueue) {
+      counts.set(type, (counts.get(type) || 0) + 1);
+    }
 
     const result: { type: EnemyType; count: number; color: string }[] = [];
 
-    if (scoutPercent > 0) {
-      result.push({
-        type: 'SCOUT',
-        count: Math.round(totalEnemies * scoutPercent),
-        color: toHexColor(ENEMY_CONFIGS.SCOUT.color),
-      });
-    }
-    if (normalPercent > 0) {
-      result.push({
-        type: 'NORMAL',
-        count: Math.round(totalEnemies * normalPercent),
-        color: toHexColor(ENEMY_CONFIGS.NORMAL.color),
-      });
-    }
-    if (tankPercent > 0) {
-      result.push({
-        type: 'TANK',
-        count: Math.round(totalEnemies * tankPercent),
-        color: toHexColor(ENEMY_CONFIGS.TANK.color),
-      });
-    }
-
-    if (nextWave % 5 === 0 && nextWave > 0) {
-      result.unshift({
-        type: 'BOSS',
-        count: 1,
-        color: toHexColor(ENEMY_CONFIGS.BOSS.color),
-      });
+    // Add in order: BOSS first (if any), then SCOUT, NORMAL, TANK
+    const order: EnemyType[] = ['BOSS', 'SCOUT', 'NORMAL', 'TANK'];
+    for (const type of order) {
+      const count = counts.get(type);
+      if (count && count > 0) {
+        result.push({
+          type,
+          count,
+          color: toHexColor(ENEMY_CONFIGS[type].color),
+        });
+      }
     }
 
     return result;
@@ -342,10 +324,10 @@ export class WaveManager {
 
     for (const enemy of enemies) {
         if (enemy.isDead()) continue;
-        
+
         const currentPos = enemy.getPosition();
         const newPath = roadNetwork.findPath(currentPos, baseLocation);
-        
+
         if (newPath) {
             enemy.setPath(newPath);
         } else {
