@@ -70,6 +70,9 @@ This utility class translates geographic coordinates (Latitude/Longitude) from O
 - **Road Parsing**: `src/roadNetwork.ts` handles converting raw OSM nodes/ways into a connected graph.
 - **Data Fetching**: `src/overpassClient.ts` constructs the queries sent to the Overpass API.
 
+## QA Testing
+Use keyboard shortcuts `l1` through `l9` to quickly load pre-configured test maps for QA testing.
+
 ## Troubleshooting
 - **"Map not loading"**: Check network tab for Overpass API errors. The API can be rate-limited.
 - **"Enemies floating"**: Ensure `CoordinateConverter` is being updated in the Phaser `update` loop.
