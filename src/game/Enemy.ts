@@ -153,6 +153,10 @@ export class Enemy extends Phaser.GameObjects.Container {
     return this.reward;
   }
 
+  public getLiveCost(): number {
+    return this.config.liveCost;
+  }
+
   public setPath(newPath: L.LatLng[]) {
     this.path = {
       roadId: -1, // Synthetic path

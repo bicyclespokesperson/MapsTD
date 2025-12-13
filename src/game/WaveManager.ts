@@ -164,7 +164,7 @@ export class WaveManager {
       enemyType,
       entry.roadPath,
       this.converter,
-      () => this.onEnemyReachGoal(),
+      () => this.onEnemyReachGoal(enemy),
       () => this.onEnemyKilled(enemy)
     );
 
@@ -191,9 +191,10 @@ export class WaveManager {
     }
   }
 
-  private onEnemyReachGoal() {
-    this.lives--;
-    console.log(`Enemy reached goal! Lives: ${this.lives}`);
+  private onEnemyReachGoal(enemy: Enemy) {
+    const liveCost = enemy.getLiveCost();
+    this.lives -= liveCost;
+    console.log(`${enemy.type} reached goal! Lost ${liveCost} lives. Lives: ${this.lives}`);
 
     this.updateStats();
 
