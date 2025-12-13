@@ -317,6 +317,62 @@ export class RoutingGraph {
     this.nodes.delete(nodeId);
   }
 
+  removeEdgesInRadius(center: L.LatLng, radiusMeters: number): void {
+    const radiusDegrees = radiusMeters / 111000;
+
+    for (const node of this.nodes.values()) {
+      const neighborsToRemove: number[] = [];
+
+      for (const neighborId of node.neighbors.keys()) {
+        const neighbor = this.nodes.get(neighborId);
+        if (!neighbor) continue;
+
+        // Check if edge passes through the blast radius
+        if (this.lineIntersectsCircle(node.latLng, neighbor.latLng, center, radiusDegrees)) {
+          neighborsToRemove.push(neighborId);
+        }
+      }
+
+      for (const neighborId of neighborsToRemove) {
+        node.neighbors.delete(neighborId);
+        // Also remove reverse edge
+        const neighbor = this.nodes.get(neighborId);
+        if (neighbor) {
+          neighbor.neighbors.delete(node.id);
+        }
+      }
+    }
+  }
+
+  private lineIntersectsCircle(p1: L.LatLng, p2: L.LatLng, center: L.LatLng, radius: number): boolean {
+    // Vector from p1 to p2
+    const dx = p2.lng - p1.lng;
+    const dy = p2.lat - p1.lat;
+
+    // Vector from p1 to center
+    const fx = p1.lng - center.lng;
+    const fy = p1.lat - center.lat;
+
+    const a = dx * dx + dy * dy;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - radius * radius;
+
+    let discriminant = b * b - 4 * a * c;
+
+    if (discriminant < 0) {
+      return false; // No intersection
+    }
+
+    discriminant = Math.sqrt(discriminant);
+
+    // Check if intersection points are within the segment [0, 1]
+    const t1 = (-b - discriminant) / (2 * a);
+    const t2 = (-b + discriminant) / (2 * a);
+
+    // Intersection occurs if either t1 or t2 is in [0, 1]
+    return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
+  }
+
   checkConnectivity(startPoints: L.LatLng[], endPoint: L.LatLng, ignoredNodeIds: Set<number>): boolean {
     const endNodeId = this.findClosestNode(endPoint);
     if (endNodeId === null || ignoredNodeIds.has(endNodeId)) return false;
@@ -716,9 +772,20 @@ export class RoadNetwork {
 
   removeRoadsInRadius(center: L.LatLng, radiusMeters: number): void {
     const nodesToRemove = this.graph.getNodesInRadius(center, radiusMeters);
+    const nodeSet = new Set(nodesToRemove);
+
+    // Remove nodes within the blast radius
     for (const nodeId of nodesToRemove) {
       this.graph.removeNode(nodeId);
     }
+
+    // Remove edges that pass through the blast radius (even if endpoints survive)
+    this.graph.removeEdgesInRadius(center, radiusMeters);
+
+    // Remove entry points whose nodes were destroyed
+    this.entryPointsFromClipping = this.entryPointsFromClipping.filter(
+      entry => !nodeSet.has(entry.nodeId)
+    );
   }
 
   findPath(start: L.LatLng, end: L.LatLng): L.LatLng[] | null {
