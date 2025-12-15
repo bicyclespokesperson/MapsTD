@@ -11,6 +11,7 @@ import {
 import { Enemy } from './Enemy';
 import { Projectile } from './Projectile';
 import { CoordinateConverter } from '../coordinateConverter';
+import { ElevationMap } from '../elevationMap';
 
 export interface TowerStatistics {
   kills: number;
@@ -38,6 +39,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   public statistics: TowerStatistics;
 
   private converter: CoordinateConverter;
+  private elevationMap: ElevationMap | null;
   private currentTarget: Enemy | null = null;
   private timeSinceLastFire: number = 0;
   
@@ -74,13 +76,15 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     x: number,
     y: number,
     geoPosition: { lat: number; lng: number },
-    converter: CoordinateConverter
+    converter: CoordinateConverter,
+    elevationMap: ElevationMap | null
   ) {
     super(scene, x, y);
 
     this.config = TOWER_CONFIGS.HELICOPTER as HelicopterConfig;
     this.geoPosition = geoPosition;
     this.converter = converter;
+    this.elevationMap = elevationMap;
     this.stats = { ...this.config.baseStats };
     this.currentLatLng = L.latLng(geoPosition.lat, geoPosition.lng);
 

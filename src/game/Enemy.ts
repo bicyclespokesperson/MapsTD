@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import * as L from 'leaflet';
 import { CoordinateConverter } from '../coordinateConverter';
 import { RoadPath } from '../roadNetwork';
+import { ElevationMap } from '../elevationMap';
 import { EnemyType, ENEMY_CONFIGS, EnemyConfig, ENEMY_STYLE } from './EnemyTypes';
 
 export class Enemy extends Phaser.GameObjects.Container {
@@ -19,12 +20,14 @@ export class Enemy extends Phaser.GameObjects.Container {
   private reward: number;
   public readonly type: EnemyType;
   private config: EnemyConfig;
+  private elevationMap: ElevationMap | null;
 
   constructor(
     scene: Phaser.Scene,
     type: EnemyType,
     path: RoadPath,
     converter: CoordinateConverter,
+    elevationMap: ElevationMap | null,
     onReachGoal: () => void,
     onKill: () => void
   ) {
@@ -33,6 +36,7 @@ export class Enemy extends Phaser.GameObjects.Container {
     this.config = ENEMY_CONFIGS[type];
     this.path = path;
     this.converter = converter;
+    this.elevationMap = elevationMap;
     this.onReachGoal = onReachGoal;
     this.onKill = onKill;
 
@@ -62,8 +66,36 @@ export class Enemy extends Phaser.GameObjects.Container {
     if (this._isDead) return;
 
     // Move along path
-    const moveDist = (this.speed * delta) / 1000; // meters to move this frame
-    this.moveAlongPath(moveDist);
+    let baseMoveDist = (this.speed * delta) / 1000; // meters to move this frame
+    
+    // Adjust speed based on elevation slope if available
+    // Look ahead a bit to determine slope? Or just use current segment slope.
+    if (this.elevationMap && this.currentWaypointIndex < this.path.waypoints.length - 1) {
+        const currentPos = this.positionLatLng;
+        const nextWaypoint = this.path.waypoints[this.currentWaypointIndex + 1];
+        
+        // Calculate slope between current position and next waypoint
+        const currentElev = this.elevationMap.getElevation(currentPos.lat, currentPos.lng);
+        const nextElev = this.elevationMap.getElevation(nextWaypoint.lat, nextWaypoint.lng);
+        
+        const dist = currentPos.distanceTo(nextWaypoint);
+        if (dist > 1) { // Avoid division by zero or tiny distances
+            const slope = (nextElev - currentElev) / dist; // Rise over run
+            
+            // Slope > 0 means uphill (slower), < 0 means downhill (faster)
+            // Factor: 1.0 = normal. 
+            // 10% slope (0.1) -> 0.8x speed?
+            // -10% slope (-0.1) -> 1.2x speed?
+            
+            // Let's say max effect is +/- 50% speed at 30% slope
+            const slopeFactor = Math.max(-0.3, Math.min(0.3, slope)); // Clamp to +/- 30% slope
+            const speedMultiplier = 1 - (slopeFactor * 1.5); // 0.3 * 1.5 = 0.45 reduction
+            
+            baseMoveDist *= Math.max(0.2, speedMultiplier); // Minimum 20% speed
+        }
+    }
+
+    this.moveAlongPath(baseMoveDist);
 
     this.updateScreenPosition();
   }

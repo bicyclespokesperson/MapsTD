@@ -17,6 +17,7 @@ export interface TowerConfig {
   baseStats: TowerStats;
   color: number;
   upgrades: UpgradeTier[];
+  requiresLineOfSight?: boolean;
 }
 
 export interface HelicopterConfig extends TowerConfig {

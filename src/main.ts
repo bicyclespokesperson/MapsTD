@@ -6,6 +6,8 @@ import { OverpassClient } from './overpassClient';
 import { RoadNetwork, BoundaryEntry } from './roadNetwork';
 import { MapSelector, SelectionState } from './mapSelector';
 import { MapConfiguration } from './mapConfiguration';
+import { ElevationClient, ElevationPoint } from './elevationClient';
+import { ElevationMap } from './elevationMap';
 import { WaveManager } from './game/WaveManager';
 import { TowerManager } from './game/TowerManager';
 import { Projectile } from './game/Projectile';
@@ -27,8 +29,10 @@ class GameScene extends Phaser.Scene {
 
   private roadGraphics!: Phaser.GameObjects.Graphics;
   private entryGraphics!: Phaser.GameObjects.Graphics;
+  private elevationGraphics!: Phaser.GameObjects.Graphics;
 
   private roadNetwork: RoadNetwork | null = null;
+  public elevationMap: ElevationMap | null = null;
   private entries: BoundaryEntry[] = [];
   private projectiles: Projectile[] = [];
   private deathEffects: DeathEffect[] = [];
@@ -41,6 +45,7 @@ class GameScene extends Phaser.Scene {
   private previewPosition: L.LatLng | null = null;
   private isValidPlacement: boolean = false;
   private showRoads: boolean = false;
+  private showElevation: boolean = false;
 
   public waveManager!: WaveManager;
   public towerManager: TowerManager | null = null;
@@ -56,7 +61,13 @@ class GameScene extends Phaser.Scene {
   create() {
     this.roadGraphics = this.add.graphics();
     this.entryGraphics = this.add.graphics();
+    this.elevationGraphics = this.add.graphics();
+    // Elevation should be at bottom
+    this.elevationGraphics.setDepth(-1);
+    this.roadGraphics.setDepth(1);
+    this.entryGraphics.setDepth(2);
     this.previewGraphics = this.add.graphics();
+    this.previewGraphics.setDepth(10);
 
     this.waveManager = new WaveManager(this, this.converter);
 
@@ -78,6 +89,7 @@ class GameScene extends Phaser.Scene {
   update(time: number, delta: number) {
     this.renderRoads();
     this.renderEntries();
+    this.renderElevationOverlay();
     this.renderPlacementPreview();
 
     if (this.waveManager) {
@@ -137,11 +149,24 @@ class GameScene extends Phaser.Scene {
     console.log('Loading roads from OSM...');
 
     try {
-      if (onProgress) onProgress('Querying OpenStreetMap data...');
-      const client = new OverpassClient();
-      const roads = await client.queryRoads(bounds);
+      if (onProgress) onProgress('Querying Map data...');
+      
+      const roadClient = new OverpassClient();
+      const elevationClient = new ElevationClient();
 
-      if (onProgress) onProgress('Building road network...');
+      // Fetch roads and elevation in parallel
+      const [roads, elevationGrid] = await Promise.all([
+        roadClient.queryRoads(bounds),
+        elevationClient.fetchGrid(bounds, 30, 30) // 30x30 grid ~ ?? meters resolution depending on map size
+      ]);
+
+      if (onProgress) onProgress('Processing map data...');
+      
+      // Initialize Elevation Map
+      this.elevationMap = new ElevationMap(elevationGrid, bounds);
+      this.waveManager.setElevationMap(this.elevationMap);
+      console.log('Elevation map initialized with grid size:', elevationGrid.length, 'x', elevationGrid[0]?.length);
+
       // Pass area to filter roads to only those within the selected area
       // Use config.area if available, otherwise use the explicit area parameter
       const filterArea = config?.area ?? area;
@@ -202,6 +227,77 @@ class GameScene extends Phaser.Scene {
     this.showRoads = visible;
   }
 
+  setShowElevation(visible: boolean) {
+    this.showElevation = visible;
+  }
+
+  private renderElevationOverlay() {
+    this.elevationGraphics.clear();
+    
+    if (!this.showElevation || !this.elevationMap) return;
+    
+    const { grid, rows, cols, bounds } = this.elevationMap.getGridData();
+    if (rows === 0 || cols === 0) return;
+
+    // Find min/max for normalization
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    
+    for(const row of grid) {
+        for(const z of row) {
+            if (z < minZ) minZ = z;
+            if (z > maxZ) maxZ = z;
+        }
+    }
+
+    if (maxZ === minZ) maxZ = minZ + 1; // Prevent div by zero
+
+    const south = bounds.getSouth();
+    const north = bounds.getNorth();
+    const west = bounds.getWest();
+    const east = bounds.getEast();
+    
+    const latStep = (north - south) / (rows - 1);
+    const lngStep = (east - west) / (cols - 1);
+
+    // Draw rects
+    // Coordinate converter projects lat/lng to pixels
+    // Since we want a continuous surface, we draw quads.
+    // Or just simple rects for stats.
+    
+    for (let r = 0; r < rows - 1; r++) {
+        for (let c = 0; c < cols - 1; c++) {
+            const z = grid[r][c];
+            const normalized = (z - minZ) / (maxZ - minZ);
+            
+            // Color map: Green (0) -> Yellow (0.5) -> Red (1)
+            let rCol, gCol, bCol;
+            if (normalized < 0.5) {
+                // Green to Yellow
+                rCol = Math.floor(255 * (normalized * 2));
+                gCol = 255;
+                bCol = 0;
+            } else {
+                // Yellow to Red
+                rCol = 255;
+                gCol = Math.floor(255 * (2 - normalized * 2));
+                bCol = 0;
+            }
+            const color = (rCol << 16) | (gCol << 8) | bCol;
+            
+            // Get screen coords for this cell
+            const p1 = this.converter.latLngToPixel(L.latLng(north - r * latStep, west + c * lngStep));
+            const p2 = this.converter.latLngToPixel(L.latLng(north - (r+1) * latStep, west + (c+1) * lngStep));
+            
+            const w = Math.abs(p2.x - p1.x) + 1;
+            const h = Math.abs(p2.y - p1.y) + 1;
+            
+            this.elevationGraphics.fillStyle(color, 0.4);
+            this.elevationGraphics.fillRect(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y), w, h);
+        }
+    }
+  }
+
   private renderEntries() {
     this.entryGraphics.clear();
 
@@ -227,7 +323,7 @@ class GameScene extends Phaser.Scene {
 
   setMapConfiguration(config: MapConfiguration) {
     if (!this.towerManager) {
-      this.towerManager = new TowerManager(this, this.converter, config);
+      this.towerManager = new TowerManager(this, this.converter, config, this.elevationMap);
       console.log('TowerManager initialized');
     }
   }
@@ -293,6 +389,30 @@ class GameScene extends Phaser.Scene {
     // Range circle
     this.previewGraphics.lineStyle(2, color, 0.6);
     this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, rangeInPixels);
+
+    // Calculate visibility polygon if elevation is available
+    if (this.elevationMap && config.requiresLineOfSight !== false) {
+        const polygon = this.elevationMap.calculateVisibilityPolygon(
+            { lat: this.previewPosition.lat, lng: this.previewPosition.lng, heightOffset: 10 }, // Assume 10m tower height
+            config.baseStats.range, // Pass base range (not max)
+            72, // 72 rays for preview
+            20  // steps
+        );
+        
+        // Convert polygon to screen coords
+        const points = polygon.map(p => this.converter.latLngToPixel(p));
+        
+        this.previewGraphics.fillStyle(color, 0.2);
+        this.previewGraphics.beginPath();
+        if (points.length > 0) {
+            this.previewGraphics.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                this.previewGraphics.lineTo(points[i].x, points[i].y);
+            }
+        }
+        this.previewGraphics.closePath();
+        this.previewGraphics.fillPath();
+    }
 
     // Tower indicator
     this.previewGraphics.fillStyle(config.color, alpha);
@@ -384,7 +504,9 @@ class GameScene extends Phaser.Scene {
 
     this.roadGraphics.clear();
     this.entryGraphics.clear();
+    this.elevationGraphics.clear();
     this.previewGraphics.clear();
+    this.setShowElevation(false);
   }
 
   restartGame() {
@@ -475,6 +597,9 @@ class UIManager {
 
   private roadToggle: HTMLElement;
   private showRoadsCheckbox: HTMLInputElement;
+  
+  private elevationToggle: HTMLElement;
+  private showElevationCheckbox: HTMLInputElement;
 
   constructor(selector: MapSelector, gameScene: GameScene, leafletMap: L.Map) {
     this.selector = selector;
@@ -508,6 +633,9 @@ class UIManager {
 
     this.roadToggle = document.getElementById('road-toggle') as HTMLElement;
     this.showRoadsCheckbox = document.getElementById('showRoadsCheckbox') as HTMLInputElement;
+
+    this.elevationToggle = document.getElementById('elevation-toggle') as HTMLElement;
+    this.showElevationCheckbox = document.getElementById('showElevationCheckbox') as HTMLInputElement;
 
     this.towerShopPanel = new TowerShopPanel((type) => {
       if (type) {
@@ -551,6 +679,10 @@ class UIManager {
 
     this.showRoadsCheckbox.addEventListener('change', () => {
       this.gameScene.setShowRoads(this.showRoadsCheckbox.checked);
+    });
+
+    this.showElevationCheckbox.addEventListener('change', () => {
+        this.gameScene.setShowElevation(this.showElevationCheckbox.checked);
     });
 
     let lastKey = '';
@@ -755,7 +887,10 @@ class UIManager {
     this.gameControls.classList.add('hidden');
     this.roadToggle.classList.add('hidden');
     this.showRoadsCheckbox.checked = false;
+    this.elevationToggle.classList.add('hidden');
+    this.showElevationCheckbox.checked = false;
     this.gameScene.setShowRoads(false);
+    this.gameScene.setShowElevation(false);
     this.selectBoundsBtn.disabled = false;
     this.selectCustomBtn.disabled = false;
     this.updateStepHelp(1, 'Select play area');
@@ -935,6 +1070,7 @@ class UIManager {
       this.wavePreview.classList.remove('hidden');
       this.gameControls.classList.remove('hidden');
       this.roadToggle.classList.remove('hidden');
+      this.elevationToggle.classList.remove('hidden');
       this.updateWavePreview();
     }
   }

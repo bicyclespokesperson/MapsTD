@@ -10,6 +10,7 @@ import {
 import { Enemy } from './Enemy';
 import { Projectile } from './Projectile';
 import { CoordinateConverter } from '../coordinateConverter';
+import { ElevationMap } from '../elevationMap';
 
 export interface TowerStatistics {
   kills: number;
@@ -28,11 +29,14 @@ export class Tower extends Phaser.GameObjects.Container {
   public stats: TowerStats;
   public targetingMode: TargetingMode = 'FIRST';
   public statistics: TowerStatistics;
+  
+  private elevationMap: ElevationMap | null;
 
   private converter: CoordinateConverter;
   private currentTarget: Enemy | null = null;
   private timeSinceLastFire: number = 0;
   private rangeCircle!: Phaser.GameObjects.Arc;
+  private rangeGraphics!: Phaser.GameObjects.Graphics;
   private towerBody!: Phaser.GameObjects.Arc;
   private barrel!: Phaser.GameObjects.Line;
   private levelText!: Phaser.GameObjects.Text;
@@ -43,11 +47,16 @@ export class Tower extends Phaser.GameObjects.Container {
     y: number,
     type: TowerType,
     geoPosition: { lat: number; lng: number },
-    converter: CoordinateConverter
+    converter: CoordinateConverter,
+    elevationMap: ElevationMap | null
   ) {
     super(scene, x, y);
 
     this.type = type;
+    this.geoPosition = geoPosition;
+    this.converter = converter;
+    this.elevationMap = elevationMap;
+    this.config = TOWER_CONFIGS[type];
     this.config = TOWER_CONFIGS[type];
     this.geoPosition = geoPosition;
     this.converter = converter;
@@ -89,6 +98,52 @@ export class Tower extends Phaser.GameObjects.Container {
 
   public setSelected(selected: boolean): void {
     this.rangeCircle.setVisible(selected);
+        
+    // Dynamic visibility visualization
+    if (selected && this.elevationMap && this.config.requiresLineOfSight !== false) {
+         const polygon = this.elevationMap.calculateVisibilityPolygon(
+            { lat: this.geoPosition.lat, lng: this.geoPosition.lng, heightOffset: 10 },
+            this.stats.range, // Pass base range
+            72,
+            20
+        );
+        
+        // We need a graphics object for the polygon
+        if (!this.rangeGraphics) {
+             this.rangeGraphics = this.scene.add.graphics();
+             this.add(this.rangeGraphics);
+        }
+        
+        this.rangeGraphics.clear();
+        const points = polygon.map(p => this.converter.latLngToPixel(p));
+        
+        // The points are in screen coordinates (absolute), but this container is at (x,y).
+        // So we need to subtract this.x, this.y to make them local.
+        // OR we iterate and act relative.
+        
+        this.rangeGraphics.fillStyle(0x00ff00, 0.2);
+        this.rangeGraphics.beginPath();
+        
+        if (points.length > 0) {
+            // Convert absolute screen coords to local container coords
+            const localPoints = points.map(p => ({ x: p.x - this.x, y: p.y - this.y }));
+            
+            this.rangeGraphics.moveTo(localPoints[0].x, localPoints[0].y);
+            for (let i = 1; i < localPoints.length; i++) {
+                this.rangeGraphics.lineTo(localPoints[i].x, localPoints[i].y);
+            }
+        }
+        this.rangeGraphics.closePath();
+        this.rangeGraphics.fillPath();
+        this.rangeGraphics.setVisible(true);
+        
+        // Hide default circle if we have polygon
+        this.rangeCircle.setVisible(false);
+    } else {
+        if (this.rangeGraphics) {
+            this.rangeGraphics.setVisible(false);
+        }
+    }
     this.towerBody.setStrokeStyle(2, selected ? 0xffff00 : 0xffffff);
   }
 
@@ -156,8 +211,42 @@ export class Tower extends Phaser.GameObjects.Container {
   }
 
   private isInRange(enemy: Enemy): boolean {
-    const distance = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
-    return distance <= this.getRangeInPixels();
+    const distPx = Phaser.Math.Distance.Between(this.x, this.y, enemy.x, enemy.y);
+    const distMeters = distPx / this.converter.pixelsPerMeter();
+    let effectiveRangeMeters = this.stats.range;
+    
+    // Relative Elevation Logic
+    if (this.elevationMap) {
+        const towerElev = this.elevationMap.getElevation(this.geoPosition.lat, this.geoPosition.lng);
+        const enemyLatLng = enemy.getPosition();
+        const enemyElev = this.elevationMap.getElevation(enemyLatLng.lat, enemyLatLng.lng);
+        
+        // Bonus for shooting down, penalty for shooting up
+        // e.g. +1% range per meter advantage
+        const diff = towerElev - enemyElev;
+        // Clamp bonus/penalty: Max +50%, Min -30%
+        const factor = Phaser.Math.Clamp(diff * 0.01, -0.3, 0.5); 
+        
+        effectiveRangeMeters = effectiveRangeMeters * (1 + factor);
+    }
+    
+    if (distMeters > effectiveRangeMeters) return false;
+    
+    // Check Line of Sight if we have elevation data
+    if (this.elevationMap && this.config.requiresLineOfSight !== false) {
+        const enemyLatLng = enemy.getPosition();
+        const towerHeight = 10;
+        const enemyHeight = 2;
+        
+        const hasLOS = this.elevationMap.checkLineOfSight(
+            { lat: this.geoPosition.lat, lng: this.geoPosition.lng, heightOffset: towerHeight },
+            { lat: enemyLatLng.lat, lng: enemyLatLng.lng, heightOffset: enemyHeight }
+        );
+        
+        if (!hasLOS) return false; 
+    }
+    
+    return true;
   }
 
   private aimAt(enemy: Enemy): void {

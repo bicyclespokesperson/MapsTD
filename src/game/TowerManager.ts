@@ -7,6 +7,7 @@ import { Enemy } from './Enemy';
 import { TowerType } from './TowerTypes';
 import { CoordinateConverter } from '../coordinateConverter';
 import { MapConfiguration } from '../mapConfiguration';
+import { ElevationMap } from '../elevationMap';
 
 // Union type for all tower types
 export type AnyTower = Tower | HelicopterTower;
@@ -17,17 +18,20 @@ export class TowerManager {
   private scene: Phaser.Scene;
   private converter: CoordinateConverter;
   private mapConfig: MapConfiguration;
+  private elevationMap: ElevationMap | null;
   private towers: AnyTower[] = [];
   private selectedTower: AnyTower | null = null;
 
   constructor(
     scene: Phaser.Scene,
     converter: CoordinateConverter,
-    mapConfig: MapConfiguration
+    mapConfig: MapConfiguration,
+    elevationMap: ElevationMap | null
   ) {
     this.scene = scene;
     this.converter = converter;
     this.mapConfig = mapConfig;
+    this.elevationMap = elevationMap;
   }
 
   public addTower(type: TowerType, geoPosition: L.LatLng, onBombExplode?: (bomb: Bomb) => void): AnyTower | Bomb | null {
@@ -53,9 +57,9 @@ export class TowerManager {
     let tower: AnyTower;
     
     if (type === 'HELICOPTER') {
-      tower = new HelicopterTower(this.scene, screenPos.x, screenPos.y, geoPosition, this.converter);
+      tower = new HelicopterTower(this.scene, screenPos.x, screenPos.y, geoPosition, this.converter, this.elevationMap);
     } else {
-      tower = new Tower(this.scene, screenPos.x, screenPos.y, type, geoPosition, this.converter);
+      tower = new Tower(this.scene, screenPos.x, screenPos.y, type, geoPosition, this.converter, this.elevationMap);
     }
     
     this.towers.push(tower);

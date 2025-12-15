@@ -3,6 +3,7 @@ import * as L from 'leaflet';
 import { BoundaryEntry, RoadNetwork } from '../roadNetwork';
 import { Enemy } from './Enemy';
 import { CoordinateConverter } from '../coordinateConverter';
+import { ElevationMap } from '../elevationMap';
 import { EnemyType, ENEMY_CONFIGS } from './EnemyTypes';
 import { GAME_CONFIG } from '../config';
 
@@ -10,6 +11,7 @@ export class WaveManager {
   private scene: Phaser.Scene;
   private converter: CoordinateConverter;
   private entries: BoundaryEntry[];
+  private elevationMap: ElevationMap | null = null;
 
   private currentWave: number = 0;
   private spawnTimer: number = 0;
@@ -84,6 +86,10 @@ export class WaveManager {
   setEntries(entries: BoundaryEntry[]) {
     this.entries = entries;
     this.generateNextWaveQueue();
+  }
+
+  setElevationMap(elevationMap: ElevationMap | null) {
+    this.elevationMap = elevationMap;
   }
 
   private generateWaveQueue(wave: number): EnemyType[] {
@@ -164,6 +170,7 @@ export class WaveManager {
       enemyType,
       entry.roadPath,
       this.converter,
+      this.elevationMap,
       () => this.onEnemyReachGoal(enemy),
       () => this.onEnemyKilled(enemy)
     );
