@@ -372,7 +372,7 @@ class GameScene extends Phaser.Scene {
 
     const config = TOWER_CONFIGS[this.placementType];
     const screenPos = this.converter.latLngToPixel(this.previewPosition);
-    const color = this.isValidPlacement ? 0x00ff00 : 0xff0000;
+    const color = this.isValidPlacement ? 0x0088ff : 0xff0000;
     const alpha = this.isValidPlacement ? 0.5 : 0.3;
     const rangeInPixels = config.baseStats.range * this.converter.pixelsPerMeter();
 

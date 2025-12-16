@@ -121,7 +121,7 @@ export class Tower extends Phaser.GameObjects.Container {
         // So we need to subtract this.x, this.y to make them local.
         // OR we iterate and act relative.
         
-        this.rangeGraphics.fillStyle(0x00ff00, 0.2);
+        this.rangeGraphics.fillStyle(0x0088ff, 0.2);
         this.rangeGraphics.beginPath();
         
         if (points.length > 0) {
@@ -232,9 +232,12 @@ export class Tower extends Phaser.GameObjects.Container {
     
     if (distMeters > effectiveRangeMeters) return false;
     
-    // Check Line of Sight if we have elevation data
+    // Check Line of Sight
     if (this.elevationMap && this.config.requiresLineOfSight !== false) {
         const enemyLatLng = enemy.getPosition();
+        
+        // We rely on checkLineOfSight to handle the "Permissive High Ground" rule per-step.
+        
         const towerHeight = 10;
         const enemyHeight = 2;
         
