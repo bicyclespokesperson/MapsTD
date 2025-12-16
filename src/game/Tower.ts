@@ -97,7 +97,6 @@ export class Tower extends Phaser.GameObjects.Container {
   }
 
   public setSelected(selected: boolean): void {
-    this.rangeCircle.setVisible(selected);
         
     // Dynamic visibility visualization
     if (selected && this.elevationMap && this.config.requiresLineOfSight !== false) {
@@ -137,6 +136,7 @@ export class Tower extends Phaser.GameObjects.Container {
         this.rangeGraphics.fillPath();
         this.rangeGraphics.setVisible(true);
         
+        // Hide default circle if we have polygon
         // Hide default circle if we have polygon
         this.rangeCircle.setVisible(false);
     } else {
@@ -216,7 +216,7 @@ export class Tower extends Phaser.GameObjects.Container {
     let effectiveRangeMeters = this.stats.range;
     
     // Relative Elevation Logic
-    if (this.elevationMap) {
+    if (this.elevationMap && !this.config.ignoresElevation) {
         const towerElev = this.elevationMap.getElevation(this.geoPosition.lat, this.geoPosition.lng);
         const enemyLatLng = enemy.getPosition();
         const enemyElev = this.elevationMap.getElevation(enemyLatLng.lat, enemyLatLng.lng);
@@ -233,7 +233,7 @@ export class Tower extends Phaser.GameObjects.Container {
     if (distMeters > effectiveRangeMeters) return false;
     
     // Check Line of Sight
-    if (this.elevationMap && this.config.requiresLineOfSight !== false) {
+    if (this.elevationMap && this.config.requiresLineOfSight !== false && !this.config.ignoresElevation) {
         const enemyLatLng = enemy.getPosition();
         
         // We rely on checkLineOfSight to handle the "Permissive High Ground" rule per-step.

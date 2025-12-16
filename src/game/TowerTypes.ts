@@ -18,6 +18,7 @@ export interface TowerConfig {
   color: number;
   upgrades: UpgradeTier[];
   requiresLineOfSight?: boolean;
+  ignoresElevation?: boolean;
 }
 
 export interface HelicopterConfig extends TowerConfig {
@@ -177,6 +178,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Helicopter',
     baseCost: 200,
     color: 0x2d5a27,
+    ignoresElevation: true,
     domainRadius: 450,
     moveSpeed: 120,
     turnSpeed: 120,
