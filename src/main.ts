@@ -386,12 +386,9 @@ class GameScene extends Phaser.Scene {
       this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, totalDomainInPixels);
     }
 
-    // Range circle
-    this.previewGraphics.lineStyle(2, color, 0.6);
-    this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, rangeInPixels);
-
     // Calculate visibility polygon if elevation is available
-    if (this.elevationMap && config.requiresLineOfSight !== false) {
+    let hasPolygon = false;
+    if (this.elevationMap && config.requiresLineOfSight !== false && !config.ignoresElevation) {
         const polygon = this.elevationMap.calculateVisibilityPolygon(
             { lat: this.previewPosition.lat, lng: this.previewPosition.lng, heightOffset: 10 }, // Assume 10m tower height
             config.baseStats.range, // Pass base range (not max)
@@ -412,6 +409,13 @@ class GameScene extends Phaser.Scene {
         }
         this.previewGraphics.closePath();
         this.previewGraphics.fillPath();
+        hasPolygon = true;
+    }
+
+    // Range circle (Only show if no polygon, or if it ignores elevation like Heli)
+    if (!hasPolygon) {
+        this.previewGraphics.lineStyle(2, color, 0.6);
+        this.previewGraphics.strokeCircle(screenPos.x, screenPos.y, rangeInPixels);
     }
 
     // Tower indicator

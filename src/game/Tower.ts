@@ -137,12 +137,12 @@ export class Tower extends Phaser.GameObjects.Container {
         this.rangeGraphics.setVisible(true);
         
         // Hide default circle if we have polygon
-        // Hide default circle if we have polygon
         this.rangeCircle.setVisible(false);
     } else {
         if (this.rangeGraphics) {
             this.rangeGraphics.setVisible(false);
         }
+        this.rangeCircle.setVisible(selected);
     }
     this.towerBody.setStrokeStyle(2, selected ? 0xffff00 : 0xffffff);
   }

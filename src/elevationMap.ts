@@ -50,7 +50,7 @@ export class ElevationMap {
   checkLineOfSight(
     p1: { lat: number; lng: number; heightOffset: number },
     p2: { lat: number; lng: number; heightOffset: number },
-    toleranceMeters: number = 5
+    toleranceMeters: number = 10
   ): boolean {
     const startElev = this.getElevation(p1.lat, p1.lng) + p1.heightOffset;
     const endElev = this.getElevation(p2.lat, p2.lng) + p2.heightOffset;
