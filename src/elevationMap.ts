@@ -49,7 +49,8 @@ export class ElevationMap {
    */
   checkLineOfSight(
     p1: { lat: number; lng: number; heightOffset: number },
-    p2: { lat: number; lng: number; heightOffset: number }
+    p2: { lat: number; lng: number; heightOffset: number },
+    toleranceMeters: number = 5
   ): boolean {
     const startElev = this.getElevation(p1.lat, p1.lng) + p1.heightOffset;
     const endElev = this.getElevation(p2.lat, p2.lng) + p2.heightOffset;
@@ -84,7 +85,9 @@ export class ElevationMap {
 
       const rayElev = startElev + (endElev - startElev) * t;
 
-      if (groundElev >= rayElev) {
+      // Add tolerance: Ground must be SIGNIFICANTLY higher than ray to block.
+      // e.g. rayElev + 5m.
+      if (groundElev >= rayElev + toleranceMeters) {
         return false; // Blocked
       }
     }
