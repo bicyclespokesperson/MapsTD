@@ -6,6 +6,40 @@ export interface ElevationPoint {
   elevation: number;
 }
 
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 2,
+  baseDelayMs: number = 1000
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) {
+        return response;
+      }
+      // Non-retryable HTTP errors (4xx)
+      if (response.status >= 400 && response.status < 500) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      // Server errors (5xx) - retry
+      lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    
+    if (attempt < maxRetries) {
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      console.log(`Retry ${attempt + 1}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error('Request failed after retries');
+}
+
 export class ElevationClient {
   private readonly endpoint = 'https://api.open-elevation.com/api/v1/lookup';
 
@@ -28,8 +62,6 @@ export class ElevationClient {
     const lngStep = (east - west) / (cols - 1);
 
     // Generate grid points
-    // We iterate rows from North to South (top to bottom) to match 2D array intuition
-    // And cols from West to East (left to right)
     for (let r = 0; r < rows; r++) {
       const lat = north - r * latStep;
       for (let c = 0; c < cols; c++) {
@@ -41,20 +73,13 @@ export class ElevationClient {
     console.log(`Fetching elevation for ${locations.length} points...`);
 
     try {
-      // The API accepts a list of locations.
-      // We might need to batch this if it's too large, but for 30x30=900 points it should be fine in one go.
-      // Max payload is usually reasonable.
-      const response = await fetch(this.endpoint, {
+      const response = await fetchWithRetry(this.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ locations }),
       });
-
-      if (!response.ok) {
-        throw new Error(`Elevation API error: ${response.status} ${response.statusText}`);
-      }
 
       const data = await response.json();
       const results: ElevationPoint[] = data.results;
@@ -72,7 +97,7 @@ export class ElevationClient {
           if (idx < results.length) {
             row.push(results[idx].elevation);
           } else {
-            row.push(0); // Fallback
+            row.push(0);
           }
           idx++;
         }
@@ -82,8 +107,7 @@ export class ElevationClient {
       return grid;
 
     } catch (error) {
-      console.error('Failed to fetch elevation data using fallback flat terrain:', error);
-      // Fallback: return 0 elevation for all points
+      console.error('Failed to fetch elevation data, using fallback flat terrain:', error);
       return Array(rows).fill(0).map(() => Array(cols).fill(0));
     }
   }

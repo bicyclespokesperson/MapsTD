@@ -42,6 +42,40 @@ export interface RoadSegment {
   highway: string;
 }
 
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 2,
+  baseDelayMs: number = 1000
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) {
+        return response;
+      }
+      // Non-retryable HTTP errors (4xx)
+      if (response.status >= 400 && response.status < 500) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      // Server errors (5xx) - retry
+      lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    
+    if (attempt < maxRetries) {
+      const delay = baseDelayMs * Math.pow(2, attempt);
+      console.log(`Retry ${attempt + 1}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error('Request failed after retries');
+}
+
 export class OverpassClient {
   private readonly endpoint = 'https://overpass-api.de/api/interpreter';
   private readonly timeout = 25;
@@ -66,14 +100,10 @@ export class OverpassClient {
     console.log('Querying Overpass API:', { south, west, north, east });
 
     try {
-      const response = await fetch(this.endpoint, {
+      const response = await fetchWithRetry(this.endpoint, {
         method: 'POST',
         body: query,
       });
-
-      if (!response.ok) {
-        throw new Error(`Overpass API error: ${response.status} ${response.statusText}`);
-      }
 
       const data: OverpassResponse = await response.json();
       console.log('Received OSM data:', data);
