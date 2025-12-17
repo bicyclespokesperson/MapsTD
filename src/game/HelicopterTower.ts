@@ -39,7 +39,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
   public statistics: TowerStatistics;
 
   private converter: CoordinateConverter;
-  private elevationMap: ElevationMap | null;
+  private _elevationMap: ElevationMap | null;
   private currentTarget: Enemy | null = null;
   private timeSinceLastFire: number = 0;
   
@@ -104,7 +104,7 @@ export class HelicopterTower extends Phaser.GameObjects.Container {
     // 1. Domain Circle (Total range = movement + weapon range) - Added to scene, not container
     const homePos = this.converter.latLngToPixel(L.latLng(this.geoPosition.lat, this.geoPosition.lng));
     this.domainCircle = this.scene.add.arc(homePos.x, homePos.y, this.getTotalDomainInPixels(), 0, 360, false, 0xffffff, 0);
-    this.domainCircle.setStrokeStyle(2, 0xffffff, 0.2);
+    this.domainCircle.setStrokeStyle(3, 0x2d5a27, 0.6);
     this.domainCircle.setVisible(false);
     // Not added to container - stays fixed at home position
 

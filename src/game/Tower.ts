@@ -37,6 +37,7 @@ export class Tower extends Phaser.GameObjects.Container {
   private timeSinceLastFire: number = 0;
   private rangeCircle!: Phaser.GameObjects.Arc;
   private rangeGraphics!: Phaser.GameObjects.Graphics;
+  private rangeOutlineGraphics!: Phaser.GameObjects.Graphics;
   private towerBody!: Phaser.GameObjects.Arc;
   private barrel!: Phaser.GameObjects.Line;
   private levelText!: Phaser.GameObjects.Text;
@@ -75,10 +76,22 @@ export class Tower extends Phaser.GameObjects.Container {
   }
 
   private createVisuals(): void {
+    // Initialize range graphics FIRST so they render behind tower body
+    this.rangeGraphics = this.scene.add.graphics();
+    this.rangeGraphics.setVisible(false);
+    this.add(this.rangeGraphics);
+
+    this.rangeOutlineGraphics = this.scene.add.graphics();
+    this.rangeOutlineGraphics.setVisible(false);
+    this.add(this.rangeOutlineGraphics);
+
+    // Old circle (fallback)
     this.rangeCircle = this.scene.add.arc(0, 0, this.getRangeInPixels(), 0, 360, false, 0xffffff, 0);
     this.rangeCircle.setStrokeStyle(2, this.config.color, 0.3);
+    this.rangeCircle.setVisible(false);
     this.add(this.rangeCircle);
 
+    // Tower body and barrel on TOP
     this.towerBody = this.scene.add.arc(0, 0, 10, 0, 360, false, this.config.color);
     this.towerBody.setStrokeStyle(2, 0xffffff);
     this.add(this.towerBody);
@@ -94,55 +107,73 @@ export class Tower extends Phaser.GameObjects.Container {
     });
     this.levelText.setOrigin(0.5, 0.5);
     this.add(this.levelText);
+
+    // Draw initial outline
+    this.updateRangePolygon();
+  }
+
+
+
+  private updateRangePolygon(): void {
+    if (!this.elevationMap || this.config.ignoresElevation || this.config.requiresLineOfSight === false) {
+      this.rangeOutlineGraphics.setVisible(false);
+      return;
+    }
+
+    const polygon = this.elevationMap.calculateVisibilityPolygon(
+      { lat: this.geoPosition.lat, lng: this.geoPosition.lng, heightOffset: 10 },
+      this.stats.range,
+      72,
+      20
+    );
+
+    const points = polygon.map(p => this.converter.latLngToPixel(p));
+    const localPoints = points.map(p => ({ x: p.x - this.x, y: p.y - this.y }));
+
+    // Draw outline only
+    this.rangeOutlineGraphics.clear();
+    this.rangeOutlineGraphics.lineStyle(3, 0x0088ff, 1.0);
+    if (localPoints.length > 0) {
+      this.rangeOutlineGraphics.beginPath();
+      this.rangeOutlineGraphics.moveTo(localPoints[0].x, localPoints[0].y);
+      for (let i = 1; i < localPoints.length; i++) {
+        this.rangeOutlineGraphics.lineTo(localPoints[i].x, localPoints[i].y);
+      }
+      this.rangeOutlineGraphics.closePath();
+      this.rangeOutlineGraphics.strokePath();
+    }
+    this.rangeOutlineGraphics.setVisible(true);
+
+    // Store points for fill drawing when selected
+    (this as any)._cachedLocalPoints = localPoints;
   }
 
   public setSelected(selected: boolean): void {
-        
-    // Dynamic visibility visualization
-    if (selected && this.elevationMap && this.config.requiresLineOfSight !== false) {
-         const polygon = this.elevationMap.calculateVisibilityPolygon(
-            { lat: this.geoPosition.lat, lng: this.geoPosition.lng, heightOffset: 10 },
-            this.stats.range, // Pass base range
-            72,
-            20
-        );
-        
-        // We need a graphics object for the polygon
-        if (!this.rangeGraphics) {
-             this.rangeGraphics = this.scene.add.graphics();
-             this.add(this.rangeGraphics);
-        }
-        
+    // Draw fill when selected (for towers with elevation)
+    if (selected && this.elevationMap && this.config.requiresLineOfSight !== false && !this.config.ignoresElevation) {
+      const localPoints = (this as any)._cachedLocalPoints as {x: number, y: number}[] | undefined;
+      
+      if (localPoints && localPoints.length > 0) {
         this.rangeGraphics.clear();
-        const points = polygon.map(p => this.converter.latLngToPixel(p));
-        
-        // The points are in screen coordinates (absolute), but this container is at (x,y).
-        // So we need to subtract this.x, this.y to make them local.
-        // OR we iterate and act relative.
-        
         this.rangeGraphics.fillStyle(0x0088ff, 0.2);
         this.rangeGraphics.beginPath();
-        
-        if (points.length > 0) {
-            // Convert absolute screen coords to local container coords
-            const localPoints = points.map(p => ({ x: p.x - this.x, y: p.y - this.y }));
-            
-            this.rangeGraphics.moveTo(localPoints[0].x, localPoints[0].y);
-            for (let i = 1; i < localPoints.length; i++) {
-                this.rangeGraphics.lineTo(localPoints[i].x, localPoints[i].y);
-            }
+        this.rangeGraphics.moveTo(localPoints[0].x, localPoints[0].y);
+        for (let i = 1; i < localPoints.length; i++) {
+          this.rangeGraphics.lineTo(localPoints[i].x, localPoints[i].y);
         }
         this.rangeGraphics.closePath();
         this.rangeGraphics.fillPath();
         this.rangeGraphics.setVisible(true);
-        
-        // Hide default circle if we have polygon
-        this.rangeCircle.setVisible(false);
+      }
+      this.rangeCircle.setVisible(false);
     } else {
-        if (this.rangeGraphics) {
-            this.rangeGraphics.setVisible(false);
-        }
+      this.rangeGraphics.setVisible(false);
+      // For towers ignoring elevation, show circle when selected
+      if (this.config.ignoresElevation) {
         this.rangeCircle.setVisible(selected);
+      } else {
+        this.rangeCircle.setVisible(false);
+      }
     }
     this.towerBody.setStrokeStyle(2, selected ? 0xffff00 : 0xffffff);
   }

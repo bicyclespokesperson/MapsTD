@@ -34,6 +34,10 @@ export class TowerManager {
     this.elevationMap = elevationMap;
   }
 
+  public setElevationMap(elevationMap: ElevationMap): void {
+    this.elevationMap = elevationMap;
+  }
+
   public addTower(type: TowerType, geoPosition: L.LatLng, onBombExplode?: (bomb: Bomb) => void): AnyTower | Bomb | null {
     if (!this.isValidPlacement(geoPosition, type)) {
       return null;

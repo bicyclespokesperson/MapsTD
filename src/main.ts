@@ -6,7 +6,7 @@ import { OverpassClient } from './overpassClient';
 import { RoadNetwork, BoundaryEntry } from './roadNetwork';
 import { MapSelector, SelectionState } from './mapSelector';
 import { MapConfiguration } from './mapConfiguration';
-import { ElevationClient, ElevationPoint } from './elevationClient';
+import { ElevationClient } from './elevationClient';
 import { ElevationMap } from './elevationMap';
 import { WaveManager } from './game/WaveManager';
 import { TowerManager } from './game/TowerManager';
@@ -165,6 +165,9 @@ class GameScene extends Phaser.Scene {
       // Initialize Elevation Map
       this.elevationMap = new ElevationMap(elevationGrid, bounds);
       this.waveManager.setElevationMap(this.elevationMap);
+      if (this.towerManager) {
+        this.towerManager.setElevationMap(this.elevationMap);
+      }
       console.log('Elevation map initialized with grid size:', elevationGrid.length, 'x', elevationGrid[0]?.length);
 
       // Pass area to filter roads to only those within the selected area
@@ -399,6 +402,7 @@ class GameScene extends Phaser.Scene {
         // Convert polygon to screen coords
         const points = polygon.map(p => this.converter.latLngToPixel(p));
         
+        // Draw fill
         this.previewGraphics.fillStyle(color, 0.2);
         this.previewGraphics.beginPath();
         if (points.length > 0) {
@@ -409,6 +413,19 @@ class GameScene extends Phaser.Scene {
         }
         this.previewGraphics.closePath();
         this.previewGraphics.fillPath();
+
+        // Draw outline
+        this.previewGraphics.lineStyle(3, color, 1.0);
+        this.previewGraphics.beginPath();
+        if (points.length > 0) {
+            this.previewGraphics.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                this.previewGraphics.lineTo(points[i].x, points[i].y);
+            }
+        }
+        this.previewGraphics.closePath();
+        this.previewGraphics.strokePath();
+
         hasPolygon = true;
     }
 
