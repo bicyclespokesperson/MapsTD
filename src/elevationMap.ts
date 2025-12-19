@@ -155,7 +155,7 @@ export class ElevationMap {
              
              // Dynamic Range Check
              const diff = startElev - center.heightOffset - groundElev; 
-             const factor = Math.max(-0.3, Math.min(0.5, diff * 0.01));
+             const factor = Math.max(-0.3, Math.min(0.5, diff * 0.007));
              const effectiveRange = baseRangeMeters * (1 + factor);
              
              if (distToPoint > effectiveRange) {

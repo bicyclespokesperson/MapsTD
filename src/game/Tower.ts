@@ -253,10 +253,10 @@ export class Tower extends Phaser.GameObjects.Container {
         const enemyElev = this.elevationMap.getElevation(enemyLatLng.lat, enemyLatLng.lng);
         
         // Bonus for shooting down, penalty for shooting up
-        // e.g. +1% range per meter advantage
+        // e.g. +0.7% range per meter advantage
         const diff = towerElev - enemyElev;
         // Clamp bonus/penalty: Max +50%, Min -30%
-        const factor = Phaser.Math.Clamp(diff * 0.01, -0.3, 0.5); 
+        const factor = Phaser.Math.Clamp(diff * 0.007, -0.3, 0.5); 
         
         effectiveRangeMeters = effectiveRangeMeters * (1 + factor);
     }
