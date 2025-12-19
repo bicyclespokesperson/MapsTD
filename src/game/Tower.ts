@@ -11,6 +11,7 @@ import { Enemy } from './Enemy';
 import { Projectile } from './Projectile';
 import { CoordinateConverter } from '../coordinateConverter';
 import { ElevationMap } from '../elevationMap';
+import { GAME_CONFIG } from '../config';
 
 export interface TowerStatistics {
   kills: number;
@@ -253,10 +254,9 @@ export class Tower extends Phaser.GameObjects.Container {
         const enemyElev = this.elevationMap.getElevation(enemyLatLng.lat, enemyLatLng.lng);
         
         // Bonus for shooting down, penalty for shooting up
-        // e.g. +0.7% range per meter advantage
         const diff = towerElev - enemyElev;
-        // Clamp bonus/penalty: Max +50%, Min -30%
-        const factor = Phaser.Math.Clamp(diff * 0.007, -0.3, 0.5); 
+        const { RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR } = GAME_CONFIG.ELEVATION;
+        const factor = Phaser.Math.Clamp(diff * RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR); 
         
         effectiveRangeMeters = effectiveRangeMeters * (1 + factor);
     }

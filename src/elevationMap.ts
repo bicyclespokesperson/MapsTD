@@ -1,4 +1,5 @@
 import * as L from 'leaflet';
+import { GAME_CONFIG } from './config';
 
 export class ElevationMap {
   private grid: number[][];
@@ -155,7 +156,8 @@ export class ElevationMap {
              
              // Dynamic Range Check
              const diff = startElev - center.heightOffset - groundElev; 
-             const factor = Math.max(-0.3, Math.min(0.5, diff * 0.007));
+             const { RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR } = GAME_CONFIG.ELEVATION;
+             const factor = Math.max(MIN_RANGE_FACTOR, Math.min(MAX_RANGE_FACTOR, diff * RANGE_BONUS_PER_METER));
              const effectiveRange = baseRangeMeters * (1 + factor);
              
              if (distToPoint > effectiveRange) {

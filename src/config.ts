@@ -31,11 +31,16 @@ export const GAME_CONFIG = {
   },
   ECONOMY: {
     BASE_STARTING_MONEY: 200,       // Base amount for reference map size
-    REFERENCE_MAP_AREA_KM2: 0.5,    // Reference area in km² that receives base amount
-    MIN_STARTING_MONEY: 200,        // Floor (never less than base)
-    MAX_STARTING_MONEY: 2000,       // Cap for very large maps
+    REFERENCE_MAP_AREA_KM2: 5.0,    // Reference area in km² that receives base amount
+    MIN_STARTING_MONEY: 200,        // Floor for small maps (~1-2 towers)
+    MAX_STARTING_MONEY: 400,        // Cap for large maps (~3-4 towers)
     STARTING_LIVES: 10,
     QA_STARTING_MONEY: 50000,       // Extra cash for QA testing with "l" key
   },
-
+  ELEVATION: {
+    RANGE_BONUS_PER_METER: 0.003,   // (X * 100)% range per meter of height advantage
+    MIN_RANGE_FACTOR: -0.3,         // Maximum penalty: -30% range
+    MAX_RANGE_FACTOR: 0.5,          // Maximum bonus: +50% range
+  },
 };
+
