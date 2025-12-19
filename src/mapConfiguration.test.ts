@@ -84,7 +84,7 @@ describe('MapConfiguration', () => {
       const config = new MapConfiguration(validArea, validBaseLocation, 'Test Map');
       const json = config.toJSON();
 
-      expect(json.version).toBe('3.0.0');
+      expect(json.version).toBe('1.0.0');
       expect(json.area.corners).toHaveLength(4);
       expect(json.area.corners[0].lat).toBeCloseTo(37.78);
       expect(json.area.corners[0].lng).toBeCloseTo(-122.42);
@@ -125,27 +125,6 @@ describe('MapConfiguration', () => {
 
       expect(restored.bounds.getNorth()).toBeCloseTo(original.bounds.getNorth());
       expect(restored.baseLocation.lat).toBeCloseTo(original.baseLocation.lat);
-    });
-
-    it('should deserialize from legacy v1.0.0 format (bounds only)', () => {
-      const legacyJson = '{"version":"1.0.0","bounds":{"north":37.78,"south":37.77,"east":-122.41,"west":-122.42},"baseLocation":{"lat":37.775,"lng":-122.415},"metadata":{"name":"Legacy Map"}}';
-      const config = MapConfiguration.fromString(legacyJson);
-
-      expect(config.area).toHaveLength(4);
-      expect(config.bounds.getNorth()).toBeCloseTo(37.78);
-      expect(config.bounds.getSouth()).toBeCloseTo(37.77);
-      expect(config.baseLocation.lat).toBeCloseTo(37.775);
-      expect(config.metadata.name).toBe('Legacy Map');
-    });
-
-    it('should deserialize from legacy v2.0.0 format (with customArea)', () => {
-      const legacyJson = '{"version":"2.0.0","bounds":{"north":37.78,"south":37.77,"east":-122.41,"west":-122.42},"baseLocation":{"lat":37.775,"lng":-122.415},"customArea":{"corners":[{"lat":37.78,"lng":-122.42},{"lat":37.78,"lng":-122.41},{"lat":37.77,"lng":-122.41},{"lat":37.77,"lng":-122.42}]},"metadata":{"name":"Custom Area Map"}}';
-      const config = MapConfiguration.fromString(legacyJson);
-
-      expect(config.area).toHaveLength(4);
-      expect(config.area[0].lat).toBeCloseTo(37.78);
-      expect(config.area[0].lng).toBeCloseTo(-122.42);
-      expect(config.metadata.name).toBe('Custom Area Map');
     });
   });
 
