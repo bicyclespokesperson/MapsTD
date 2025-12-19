@@ -172,4 +172,53 @@ describe('MapConfiguration', () => {
       expect(area[3].lng).toBeCloseTo(-122.42); // West
     });
   });
+
+  describe('getAreaKm2', () => {
+    it('should return the area in km²', () => {
+      const config = new MapConfiguration(validArea, validBaseLocation);
+      const size = config.getBoundsSizeKm();
+      const expectedArea = size.width * size.height;
+      expect(config.getAreaKm2()).toBeCloseTo(expectedArea);
+    });
+  });
+
+  describe('calculateStartingMoney', () => {
+    it('should return at least the minimum starting money', () => {
+      // validArea is ~1km x ~1km, so should get more than minimum
+      const config = new MapConfiguration(validArea, validBaseLocation);
+      expect(config.calculateStartingMoney()).toBeGreaterThanOrEqual(200);
+    });
+
+    it('should scale up for larger maps', () => {
+      // Create a larger area (~2km x ~2km)
+      const largeArea = [
+        L.latLng(37.78, -122.44), // ~3km difference in lng
+        L.latLng(37.78, -122.41),
+        L.latLng(37.75, -122.41), // ~3km difference in lat
+        L.latLng(37.75, -122.44),
+      ];
+      const baseLocation = L.latLng(37.765, -122.425);
+      const config = new MapConfiguration(largeArea, baseLocation);
+      
+      // Larger map should get more money than base
+      expect(config.calculateStartingMoney()).toBeGreaterThan(200);
+    });
+
+    it('should not exceed maximum starting money', () => {
+      // Create a large valid area (~6.5km x ~6.5km = ~42 km²)
+      // At 0.5 km² reference, that would be ~84x the base = $16,800
+      // But capped at $2000
+      const largeArea = [
+        L.latLng(37.83, -122.49),
+        L.latLng(37.83, -122.41),  // ~6.7km lng difference at this latitude
+        L.latLng(37.77, -122.41),  // ~6.7km lat difference
+        L.latLng(37.77, -122.49),
+      ];
+      const baseLocation = L.latLng(37.80, -122.45);
+      const config = new MapConfiguration(largeArea, baseLocation);
+      
+      expect(config.calculateStartingMoney()).toBeLessThanOrEqual(2000);
+    });
+  });
 });
+

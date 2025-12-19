@@ -87,6 +87,23 @@ export class MapConfiguration {
     };
   }
 
+  getAreaKm2(): number {
+    const size = this.getBoundsSizeKm();
+    return size.width * size.height;
+  }
+
+  calculateStartingMoney(): number {
+    const area = this.getAreaKm2();
+    const { BASE_STARTING_MONEY, REFERENCE_MAP_AREA_KM2, MIN_STARTING_MONEY, MAX_STARTING_MONEY } = GAME_CONFIG.ECONOMY;
+    
+    // Linear scaling: larger maps get more money
+    const scaledMoney = Math.round(BASE_STARTING_MONEY * (area / REFERENCE_MAP_AREA_KM2));
+    
+    // Apply min/max constraints
+    return Math.max(MIN_STARTING_MONEY, Math.min(MAX_STARTING_MONEY, scaledMoney));
+  }
+
+
   getNoBuildRadiusMeters(): number {
     return GAME_CONFIG.MAP.NO_BUILD_RADIUS_METERS;
   }

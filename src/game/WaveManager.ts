@@ -21,7 +21,8 @@ export class WaveManager {
   private spawnQueue: EnemyType[] = [];
   private nextWaveQueue: EnemyType[] = [];
   private lives: number = GAME_CONFIG.ECONOMY.STARTING_LIVES;
-  private money: number = GAME_CONFIG.ECONOMY.STARTING_MONEY;
+  private money: number = GAME_CONFIG.ECONOMY.BASE_STARTING_MONEY;
+  private startingMoney: number = GAME_CONFIG.ECONOMY.BASE_STARTING_MONEY;
 
   private isWaveActive: boolean = false;
   private totalKills: number = 0;
@@ -90,6 +91,12 @@ export class WaveManager {
 
   setElevationMap(elevationMap: ElevationMap | null) {
     this.elevationMap = elevationMap;
+  }
+
+  setStartingMoney(amount: number) {
+    this.startingMoney = amount;
+    this.money = amount;
+    this.updateStats();
   }
 
   private generateWaveQueue(wave: number): EnemyType[] {
@@ -240,6 +247,7 @@ export class WaveManager {
     window.dispatchEvent(gameOverEvent);
 
     this.lives = GAME_CONFIG.ECONOMY.STARTING_LIVES;
+    this.money = this.startingMoney;
     this.currentWave = 0;
     this.totalKills = 0;
     this.totalMoneyEarned = 0;
@@ -253,7 +261,7 @@ export class WaveManager {
 
   reset() {
     this.lives = GAME_CONFIG.ECONOMY.STARTING_LIVES;
-    this.money = GAME_CONFIG.ECONOMY.STARTING_MONEY;
+    this.money = this.startingMoney;
     this.currentWave = 0;
     this.totalKills = 0;
     this.totalMoneyEarned = 0;

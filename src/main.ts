@@ -775,13 +775,17 @@ class UIManager {
                 if (loadingText) loadingText.textContent = message;
               });
 
+              // Set starting money based on map size
+              const startingMoney = config.calculateStartingMoney();
+              this.gameScene.waveManager.setStartingMoney(startingMoney);
+              
               // Only give QA money for slot 1
               if (slotNumber === 1) {
-                const qaBonus = GAME_CONFIG.ECONOMY.QA_STARTING_MONEY - GAME_CONFIG.ECONOMY.STARTING_MONEY;
+                const qaBonus = GAME_CONFIG.ECONOMY.QA_STARTING_MONEY - startingMoney;
                 this.gameScene.waveManager.addMoney(qaBonus);
                 console.log(`Test map ${slotNumber} loaded with QA money:`, GAME_CONFIG.ECONOMY.QA_STARTING_MONEY);
               } else {
-                console.log(`Test map ${slotNumber} loaded with normal starting money:`, GAME_CONFIG.ECONOMY.STARTING_MONEY);
+                console.log(`Test map ${slotNumber} loaded with starting money:`, startingMoney);
               }
             } finally {
               if (loadingOverlay) loadingOverlay.classList.add('hidden');
@@ -968,6 +972,11 @@ class UIManager {
       });
 
       this.gameScene.setMapConfiguration(currentConfig);
+      
+      // Set starting money based on map size
+      const startingMoney = currentConfig.calculateStartingMoney();
+      this.gameScene.waveManager.setStartingMoney(startingMoney);
+      
       this.towerInfoPanel.hide();
       this.towerShopPanel.show();
       this.wavePreview.classList.remove('hidden');
@@ -1087,6 +1096,12 @@ class UIManager {
     if (state.config) {
       this.gameScene.recalculateEntries(state.config);
       this.gameScene.setMapConfiguration(state.config);
+      
+      // Set starting money based on map size
+      const startingMoney = state.config.calculateStartingMoney();
+      this.gameScene.waveManager.setStartingMoney(startingMoney);
+      console.log(`Map area: ${state.config.getAreaKm2().toFixed(2)} km², Starting money: $${startingMoney}`);
+      
       this.towerShopPanel.show();
       this.wavePreview.classList.remove('hidden');
       this.gameControls.classList.remove('hidden');

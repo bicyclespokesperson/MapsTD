@@ -30,8 +30,12 @@ export const GAME_CONFIG = {
     WIDTH: 3,
   },
   ECONOMY: {
-    STARTING_MONEY: 200,
+    BASE_STARTING_MONEY: 200,       // Base amount for reference map size
+    REFERENCE_MAP_AREA_KM2: 0.5,    // Reference area in km² that receives base amount
+    MIN_STARTING_MONEY: 200,        // Floor (never less than base)
+    MAX_STARTING_MONEY: 2000,       // Cap for very large maps
     STARTING_LIVES: 10,
-    QA_STARTING_MONEY: 50000, // Extra cash for QA testing with "l" key
+    QA_STARTING_MONEY: 50000,       // Extra cash for QA testing with "l" key
   },
+
 };
