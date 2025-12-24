@@ -44,3 +44,22 @@ export const GAME_CONFIG = {
   },
 };
 
+/**
+ * Calculate effective range based on elevation difference.
+ * Shared between tower targeting and range polygon rendering.
+ * @param baseRange - The tower's base range in meters
+ * @param towerGroundElev - Ground elevation at tower position
+ * @param targetGroundElev - Ground elevation at target position
+ * @returns Effective range in meters, adjusted for elevation
+ */
+export function calculateEffectiveRange(
+  baseRange: number,
+  towerGroundElev: number,
+  targetGroundElev: number
+): number {
+  const elevDiff = towerGroundElev - targetGroundElev;
+  const { RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR } = GAME_CONFIG.ELEVATION;
+  const factor = Math.max(MIN_RANGE_FACTOR, Math.min(MAX_RANGE_FACTOR, elevDiff * RANGE_BONUS_PER_METER));
+  return baseRange * (1 + factor);
+}
+

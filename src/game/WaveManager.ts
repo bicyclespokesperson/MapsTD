@@ -305,6 +305,11 @@ export class WaveManager {
     this.updateStats();
   }
 
+  addLives(amount: number): void {
+    this.lives += amount;
+    this.updateStats();
+  }
+
   getNextWavePreview(): { type: EnemyType; count: number; color: string }[] {
     const toHexColor = (color: number) => '#' + color.toString(16).padStart(6, '0');
 

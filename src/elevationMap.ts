@@ -1,5 +1,5 @@
 import * as L from 'leaflet';
-import { GAME_CONFIG } from './config';
+import { calculateEffectiveRange } from './config';
 
 export class ElevationMap {
   private grid: number[][];
@@ -111,6 +111,7 @@ export class ElevationMap {
 
   /**
    * Calculate a polygon representing the area visible from a point.
+   * The polygon is clipped to the map bounds.
    */
   public calculateVisibilityPolygon(
     center: { lat: number; lng: number; heightOffset: number },
@@ -121,6 +122,25 @@ export class ElevationMap {
     const vertices: L.LatLng[] = [];
     const centerLatLng = L.latLng(center.lat, center.lng);
     const startElev = this.getElevation(center.lat, center.lng) + center.heightOffset;
+    
+    // Get bounds for clipping
+    const north = this.bounds.getNorth();
+    const south = this.bounds.getSouth();
+    const east = this.bounds.getEast();
+    const west = this.bounds.getWest();
+    
+    // Helper to clamp a point to bounds
+    const clampToBounds = (lat: number, lng: number): L.LatLng => {
+      return L.latLng(
+        Math.max(south, Math.min(north, lat)),
+        Math.max(west, Math.min(east, lng))
+      );
+    };
+    
+    // Helper to check if a point is within bounds
+    const isInBounds = (lat: number, lng: number): boolean => {
+      return lat >= south && lat <= north && lng >= west && lng <= east;
+    };
     
     // Scan further than base range to account for potential bonuses (max +50%)
     const scanDistance = baseRangeMeters * 1.5;
@@ -143,6 +163,7 @@ export class ElevationMap {
         let hitPoint = L.latLng(endLat, endLng);
         let blocked = false;
         let previousValidPoint = centerLatLng;
+        let hitBounds = false;
 
         for (let s = 1; s <= maxStepsPerRay; s++) {
              const t = s / maxStepsPerRay;
@@ -152,13 +173,19 @@ export class ElevationMap {
              
              if (distToPoint < 1) continue; 
              
+             // Check if we've hit the bounds
+             if (!isInBounds(currentLat, currentLng)) {
+                 // Find intersection with bounds by clamping
+                 hitPoint = clampToBounds(currentLat, currentLng);
+                 hitBounds = true;
+                 break;
+             }
+             
              const groundElev = this.getElevation(currentLat, currentLng);
              
-             // Dynamic Range Check
-             const diff = startElev - center.heightOffset - groundElev; 
-             const { RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR } = GAME_CONFIG.ELEVATION;
-             const factor = Math.max(MIN_RANGE_FACTOR, Math.min(MAX_RANGE_FACTOR, diff * RANGE_BONUS_PER_METER));
-             const effectiveRange = baseRangeMeters * (1 + factor);
+             // Dynamic Range Check - use shared function
+             const towerGroundElev = startElev - center.heightOffset;
+             const effectiveRange = calculateEffectiveRange(baseRangeMeters, towerGroundElev, groundElev);
              
              if (distToPoint > effectiveRange) {
                   // Out of range
@@ -285,8 +312,9 @@ export class ElevationMap {
              }
         }
         
-        if (!blocked) {
-            hitPoint = L.latLng(endLat, endLng);
+        if (!blocked && !hitBounds) {
+            // Clamp the final endpoint to bounds if it extends beyond
+            hitPoint = clampToBounds(endLat, endLng);
         }
         
         vertices.push(hitPoint);

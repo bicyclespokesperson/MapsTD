@@ -724,17 +724,23 @@ class UIManager {
         console.log('Added 10000 money for testing');
       }
 
-      // Press 'L1' through 'L9' to load test maps for quick testing
+      // Press 'L' to add 10 lives for testing
+      if (e.key === 'l' || e.key === 'L') {
+        this.gameScene.waveManager.addLives(10);
+        console.log('Added 10 lives for testing');
+      }
+
+      // Press 'A1' through 'A9' to load test maps for quick testing
       // Only works when no game is in progress (wave 0)
       const now = Date.now();
-      if ((e.key === 'l' || e.key === 'L') && now - lastKeyTime < 1000) {
+      if ((e.key === 'a' || e.key === 'A') && now - lastKeyTime < 1000) {
         // Reset for next sequence
         lastKey = '';
         lastKeyTime = 0;
-      } else if (e.key === 'l' || e.key === 'L') {
-        lastKey = 'l';
+      } else if (e.key === 'a' || e.key === 'A') {
+        lastKey = 'a';
         lastKeyTime = now;
-      } else if (lastKey === 'l' && e.key >= '1' && e.key <= '9' && now - lastKeyTime < 1000) {
+      } else if (lastKey === 'a' && e.key >= '1' && e.key <= '9' && now - lastKeyTime < 1000) {
         const slotNumber = parseInt(e.key);
         const currentWave = this.gameScene.waveManager.getStats().wave;
 

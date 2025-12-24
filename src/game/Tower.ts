@@ -11,7 +11,7 @@ import { Enemy } from './Enemy';
 import { Projectile } from './Projectile';
 import { CoordinateConverter } from '../coordinateConverter';
 import { ElevationMap } from '../elevationMap';
-import { GAME_CONFIG } from '../config';
+import { calculateEffectiveRange } from '../config';
 
 export interface TowerStatistics {
   kills: number;
@@ -253,12 +253,7 @@ export class Tower extends Phaser.GameObjects.Container {
         const enemyLatLng = enemy.getPosition();
         const enemyElev = this.elevationMap.getElevation(enemyLatLng.lat, enemyLatLng.lng);
         
-        // Bonus for shooting down, penalty for shooting up
-        const diff = towerElev - enemyElev;
-        const { RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR } = GAME_CONFIG.ELEVATION;
-        const factor = Phaser.Math.Clamp(diff * RANGE_BONUS_PER_METER, MIN_RANGE_FACTOR, MAX_RANGE_FACTOR); 
-        
-        effectiveRangeMeters = effectiveRangeMeters * (1 + factor);
+        effectiveRangeMeters = calculateEffectiveRange(this.stats.range, towerElev, enemyElev);
     }
     
     if (distMeters > effectiveRangeMeters) return false;
@@ -317,6 +312,9 @@ export class Tower extends Phaser.GameObjects.Container {
 
     const newSize = 10 + (this.level - 1) * 2;
     this.towerBody.setRadius(newSize);
+
+    // Update range polygon to reflect new stats
+    this.updateRangePolygon();
 
     return true;
   }
